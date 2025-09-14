@@ -21,6 +21,7 @@ name = "jobai-backend"
 version = "0.0.1"
 description = "JobAI Backend (FastAPI) – scraping, AI generation, billing"
 authors = ["Richardson <rpsantosvix@gmail.com>"]
+package-mode=false
 
 [tool.poetry.dependencies]
 python = ">=3.13"
@@ -29,7 +30,7 @@ pre-commit = ">=4.3.0,<5.0.0"
 
 [tool.black]
 line-length = 120
-target-version = ['py312']
+target-version = ['py313']
 skip-string-normalization = true
 verbose = true
 

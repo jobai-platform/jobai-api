@@ -12,10 +12,10 @@ dependencies = [
     "pre-commit (>=4.3.0,<5.0.0)"
 ]
 
-[tool.poetry]
-packages = [
-    { include = "app" }
-]
+#[tool.poetry]
+#packages = [
+#    { include = "app" }
+#]
 
 [tool.black]
 line-length = 120

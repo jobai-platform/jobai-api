@@ -26,7 +26,7 @@ jobs:
             packages: write
         env:
             image_name: ghcr.io/${{ github.repository }}/jobai-backend
-            python_version: 3.13
+            PYTHON_VERSION: 3.13
 
         steps:
             - name: Checkout code
@@ -35,12 +35,12 @@ jobs:
             - name: Set up Python ${{ env.PYTHON_VERSION }}
               uses: actions/setup-python@v5
               with:
-                 python-version: ${{ env.PYTHON_VERSION }}
+                 PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
 
             - name: Install Poetry
               uses: abatilo/actions-poetry@v3
               with:
-                 poetry-version: 1.8.3
+                 PYTHON_VERSION: 1.8.3
 
             - name: Cache Poetry dependencies
               uses: actions/cache@v4

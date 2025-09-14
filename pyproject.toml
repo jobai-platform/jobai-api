@@ -5,16 +5,43 @@ description = "JobAI Backend (FastAPI) – scraping, AI generation, billing"
 authors = [
     {name = "Richardson",email = "rpsantosvix@gmail.com"}
 ]
-readme = "README.md"
+#readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi[standard] (>=0.116.1,<0.117.0)"
+    "fastapi[standard] (>=0.116.1,<0.117.0)",
+    "pre-commit (>=4.3.0,<5.0.0)"
 ]
 
 [tool.poetry]
 packages = [
     { include = "app" }
 ]
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+skip-string-normalization = true
+verbose = true
+
+[tool.mypy]
+ignore-missing-imports = true
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["cdat-ui"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "ANN101", "ANN102"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

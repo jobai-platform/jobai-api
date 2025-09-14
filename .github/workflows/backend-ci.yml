@@ -1,6 +1,8 @@
 name: Backend CI
 on:
     pull_request:
+        branches:
+            - develop
         paths:
             - app/**
             - Dockerfile
@@ -10,6 +12,12 @@ on:
     push:
         branches:
             - main
+            - develop
+            - 'feature/**'
+            - 'hotfix/**'
+            - 'release/**'
+            - 'bugfix/**'
+            - 'refactor/**'
         paths:
             - app/**
             - Dockerfile
@@ -26,31 +34,39 @@ jobs:
             packages: write
         env:
             image_name: ghcr.io/${{ github.repository }}/jobai-backend
-            python_version: 3.13
+#            python_version: 3.13
+            TAG: ${{ github.sha }}
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Stop infinite loop if commit is from GitHub Actions
+              if: github.actor == 'github-actions'
+              run: |
+                echo "Triggered by GitHub Actions bot — skipping workflow."
+                exit 0
+
             - name: Set up Python ${{ env.PYTHON_VERSION }}
               uses: actions/setup-python@v5
               with:
-                 python_version: ${{ env.PYTHON_VERSION }}
+                 python-version: ${{ env.PYTHON_VERSION }}
 
             - name: Install Poetry
               uses: abatilo/actions-poetry@v3
               with:
-                 python_version: 1.8.3
+                 poetry-version: 2.1.4
 
             - name: Cache Poetry dependencies
               uses: actions/cache@v4
               with:
-                  path: |
-                      ~/.cache/pypoetry
-                      ~/.cache/pip
-                  key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
-                  restore-keys: |
-                      poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+                path: |
+                  ~/.cache/pypoetry
+                  ~/.cache/pip
+                key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+                restore-keys: |
+                  poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
             - name: Install dependencies
               run: |
 #                  poetry env use python${{ env.PYTHON_VERSION }}

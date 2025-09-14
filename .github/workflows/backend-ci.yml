@@ -1,0 +1,86 @@
+name: Backend CI
+on:
+    pull_request:
+        paths:
+            - app/**
+            - Dockerfile
+            - pyproject.toml
+            - poetry.lock
+            - .github/workflows/backend-ci.yml
+    push:
+        branches:
+            - main
+        paths:
+            - app/**
+            - Dockerfile
+            - pyproject.toml
+            - poetry.lock
+            - .github/workflows/backend-ci.yml
+
+jobs:
+    test-build-push:
+        name: Test, Build and Push Docker Image
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        env:
+            image_name: ghcr.io/${{ github.repository }}/jobai-backend
+            python_version: 3.13
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Python ${{ env.PYTHON_VERSION }}
+              uses: actions/setup-python@v5
+              with:
+                 python-version: ${{ env.PYTHON_VERSION }}
+
+            - name: Install Poetry
+              uses: abatilo/actions-poetry@v3
+              with:
+                 poetry-version: 1.8.3
+
+            - name: Cache Poetry dependencies
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/pypoetry
+                      ~/.cache/pip
+                  key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+                  restore-keys: |
+                      poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            - name: Install dependencies
+              run: poetry install --no-interaction --no-ansi --no-root
+
+            - name: Lint (ruff) + Format (black) + Types (mypy)
+              run: |
+                  poetry run ruff check .
+                  poetry run black --check .
+                  poetry run mypy app
+
+            - name: Run Tests
+              # run: poetry run pytest -v --cov=app --cov-report=xml --cov-report=term-missing tests/
+              run: poetry run pytest -q
+
+            - name: Login GHCR
+              if: github.ref == 'refs/haeads/main'
+              uses: docker/login-action@v3
+              with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and Push Docker Image
+              if: github.ref == 'refs/heads/main'
+              run: |
+                  docker build -t $IMAGE_NAME:sha-${GITHUB_SHA::7} -t $IMAGE_NAME:latest .
+
+            - name: Push Docker Image
+              if: github.ref == 'refs/heads/main'
+              run: |
+                  docker push $IMAGE_NAME:sha-${GITHUB_SHA::7}
+                  docker push $IMAGE_NAME:latest
+
+

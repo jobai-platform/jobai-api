@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobai-api-container-dev
+    hostname: jobai-api
+    environment:
+      - PORT=${API_PORT:-5001}
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - TF_CPP_MIN_LOG_LEVEL=2
+      - PYTHON_VERSION=3.13
+    ports:
+      - ${API_PORT:-5000}:5001
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload --log-level debug
+    restart: always
+    depends_on: [db]
+    networks:
+      - backend
+
+  db:
+    image: postgres:17.2-alpine
+    restart: unless-stopped
+    container_name: postgres-container-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: jobai_db
+      PG_DATA: /data/postgres
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    networks:
+      - postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+networks:
+  backend:
+    driver: bridge
+  postgres:
+    driver: bridge
+
+volumes:
+  postgres-data:

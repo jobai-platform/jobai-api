@@ -1,0 +1,72 @@
+#[project]
+#name = "jobai-backend"
+#version = "0.0.1"
+#description = "JobAI Backend (FastAPI) – scraping, AI generation, billing"
+#authors = [
+#    {name = "Richardson",email = "rpsantosvix@gmail.com"}
+#]
+#readme = "README.md"
+#requires-python = ">=3.13"
+#dependencies = [
+#    "fastapi[standard] (>=0.116.1,<0.117.0)",
+#    "pre-commit (>=4.3.0,<5.0.0)"
+#]
+
+#[tool.poetry]
+#packages = [
+#    { include = "app" }
+#]
+[tool.poetry]
+name = "jobai-backend"
+version = "0.0.1"
+description = "JobAI Backend (FastAPI) – scraping, AI generation, billing"
+authors = ["Richardson <rpsantosvix@gmail.com>"]
+readme = "README.md"
+package-mode=false
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = { version = ">=0.116.1,<0.117.0", extras = ["standard"] }
+pre-commit = ">=4.3.0,<5.0.0"
+uvicorn = "^0.35.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.13.0"
+black = "^25.1.0"
+mypy = "^1.18.1"
+pytest = "^8.4.2"
+pytest-asyncio = "^1.2.0"
+types-requests = "^2.32.4.20250913"
+
+[tool.black]
+line-length = 120
+target-version = ['py313']
+skip-string-normalization = true
+verbose = true
+
+[tool.mypy]
+python_version = "3.13"
+strict = false
+warn_unused_ignores = true
+ignore-missing-imports = true
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["cdat-ui"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "ANN101", "ANN102"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

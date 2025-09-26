@@ -31,6 +31,10 @@ pre-commit = ">=4.3.0,<5.0.0"
 uvicorn = "^0.35.0"
 python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+pydantic = "^2.11.9"
+sqlalchemy = "^2.0.43"
+asyncpg = "^0.30.0"
+marshmallow = "^4.0.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"
@@ -39,6 +43,7 @@ mypy = "^1.18.1"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
 types-requests = "^2.32.4.20250913"
+alembic = "^1.16.5"
 
 [tool.black]
 line-length = 120

@@ -1,15 +1,33 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import DeclarativeBase
 
-# DB_HOST = os.getenv("DB_HOST", "localhost")
-# DB_PORT = os.getenv("DB_PORT", "5432")
-# DB_NAME = os.getenv("DB_NAME", "postgres")
-# DB_USER = os.getenv("DB_USER", "postgres")
-# DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+from app.core.config import settings
 
-# URL_DATABASE = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-engine = create_engine(os.getenv("DATABASE_URL"))
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
+
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    future=True,
+    pool_pre_ping=True,
+)
+
+
+async_session = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    autoflush=False,
+    class_=AsyncSession,
+)
+
+
+async def get_async_session() -> AsyncSession:
+    async with async_session() as session:
+        yield session

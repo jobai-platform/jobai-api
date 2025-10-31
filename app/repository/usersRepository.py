@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.UserSchemas import UserRead, UserRoles, UserCreate, UserUpdate
 from app.interfaces.interface_UserRepository import UserRepositoryInterface
-from app.models.usersModels import Users as UsersORM, Users
+from app.models.usersModels import Users as UsersORM
 
 
 def _to_read(row: UsersORM) -> UserRead:
@@ -63,24 +63,30 @@ class UserRepository(UserRepositoryInterface):
         return int(result.scalar_one())
 
 
-    async def create(self, session: AsyncSession, data: UserCreate) -> UserRead:
+    async def create(
+        self,
+        session: AsyncSession,
+        data: UserCreate,
+        *,
+        hashed_password: str | None = None,
+    ) -> UserRead:
         """Create a new user."""
         new_user = UsersORM(
             email=data.email,
             username=data.username,
             first_name=data.first_name,
             last_name=data.last_name,
-            avatar=data.avatar,
+            hashed_password=hashed_password,
+            # avatar=data.avatar,
             role=UserRoles.USER.value,
             is_active=True,
             stripe_customer_id=data.stripe_customer_id,
         )
-        if data.password:
-            new_user.set_password(data.password)
 
         session.add(new_user)
         await session.commit()
         await session.refresh(new_user)
+
         return _to_read(new_user)
 
 

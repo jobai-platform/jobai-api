@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 class Token(BaseModel):
     """ Schema class representing a JWT auth token. """
-
     access_token: str
     token_type: str
     token_type: str = "Bearer"
@@ -21,5 +20,4 @@ class RefreshTokenPayload(BaseModel):
 
 class GoogleTokenPayload(BaseModel):
     """ Schema class representing a Google OAuth2 token payload. """
-
     google_oauth2_token: str

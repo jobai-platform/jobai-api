@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.interfaces.interface_UserRepository import UserRepositoryInterface
 from app.schemas.UserSchemas import UserCreate, UserRead, UserUpdate
+from app.utils.jwt_service import PasswordService, JWTService
 
 
 class UserService:
@@ -12,8 +13,12 @@ class UserService:
     def __init__(
         self,
         repo: UserRepositoryInterface,
+        pwd: PasswordService | None = None,
+        jwt: JWTService | None = None
     ):
         self.repo = repo
+        self.pwd = pwd or PasswordService()
+        self.jwt = jwt or JWTService()
 
 
     async def register(
@@ -30,13 +35,12 @@ class UserService:
         :return: UserRead
         """
         existing = await self.repo.get_by_email(session, data.email)
-
-        print(f"DEBUG: Data received for registration: {data}")
-
         if existing:
             raise ValueError("Email already registered")
+        pwd_hash = self.pwd.hash_password(data.password) if data.password else None
+        user = await self.repo.create(session, data, hashed_password=pwd_hash)
 
-        return await self.repo.create(session, data)
+        return user
 
 
     async def list(

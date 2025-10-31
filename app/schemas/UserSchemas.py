@@ -1,5 +1,6 @@
 import uuid
 from enum import Enum
+from typing import Self
 
 from fastapi.params import Form
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
@@ -20,7 +21,7 @@ class UserBase(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     username: str | None = None
-    avatar: str | None = "avatars/default.png"
+    # avatar: str | None = "avatars/default.png"
 
 
 class UserRead(BaseModel):
@@ -65,7 +66,7 @@ class UserUpdate(BaseModel):
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    avatar: str | None = None
+    # avatar: str | None = None
     role: UserRoles | None = None
     is_active: bool | None = None
     stripe_customer_id: str | None = None

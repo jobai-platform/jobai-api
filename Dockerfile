@@ -29,7 +29,7 @@ COPY . /app
 RUN poetry config virtualenvs.create false
 
 # Install project dependencies
-RUN poetry install --no-interaction --no-ansi
+RUN poetry install --no-interaction --no-ansi --no-root
 
 
 # Install any needed packages specified in poetry.lock

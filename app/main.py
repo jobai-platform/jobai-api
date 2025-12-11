@@ -1,8 +1,30 @@
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="JobAI Backend", version="1.0.0")
+from app.core.handlers import setup_routers
 
 
-@app.get("/health", tags=["health"])
-def health() -> dict:
-    return {"status": "ok"}
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="JobAI API Platform",
+        version="1.0.0",
+    )
+
+    setup_routers(app, prefix="/api/v1")
+
+    # app.add_middleware(
+    #     CORSMiddleware,
+    #     allow_origins=["*"],
+    #     allow_credentials=True,
+    #     allow_methods=["*"],
+    #     allow_headers=["*"],
+    # )
+
+    @app.get("/health", tags=["health"])
+    def health() -> dict:
+        return {"status": "ok"}
+
+    return app
+
+app = create_app()
+

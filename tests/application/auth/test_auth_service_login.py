@@ -58,7 +58,6 @@ async def test_login_success_returns_token_pair():
             hashed_password=pwd_hasher.hash_password("securepassword"),
             role="user",
             is_active=True,
-            is_superuser=False,
         )
     )
 
@@ -109,7 +108,6 @@ async def test_login_fails_if_password_invalid():
             hashed_password=pwd_hasher.hash_password("secret"),
             role="user",
             is_active=True,
-            is_superuser=False,
         )
     )
 
@@ -136,7 +134,6 @@ async def test_login_fails_if_user_inactive():
         hashed_password=pwd_hasher.hash_password("secret"),
         role="user",
         is_active=False,
-        is_superuser=False,
     )
     await user_repo.create(user)
 
@@ -164,7 +161,6 @@ async def test_login_fails_if_user_has_no_password():
         hashed_password=None,
         role="user",
         is_active=True,
-        is_superuser=False,
     )
     await user_repo.create(user)
 

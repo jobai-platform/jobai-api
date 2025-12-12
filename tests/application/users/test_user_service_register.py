@@ -33,7 +33,6 @@ async def test_register_creates_user_with_hashed_password():
     assert user.hashed_password == "hashed_securepassword"
     assert user.role == "user"
     assert user.is_active is True
-    assert user.is_superuser is False
 
 @pytest.mark.asyncio
 async def test_register_fails_if_email_already_exists_normalized():

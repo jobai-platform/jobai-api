@@ -26,7 +26,6 @@ def _to_domain(row: UserModel) -> User:
         hashed_password=row.hashed_password,
         role=row.role,
         is_active=row.is_active,
-        is_superuser=row.is_superuser,
         stripe_customer_id=row.stripe_customer_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -103,7 +102,6 @@ class SqlAlchemyUserRepository(UserRepository):
             hashed_password=user.hashed_password,
             role=user.role,
             is_active=user.is_active,
-            is_superuser=user.is_superuser,
             stripe_customer_id=user.stripe_customer_id,
         )
 
@@ -134,7 +132,6 @@ class SqlAlchemyUserRepository(UserRepository):
             "hashed_password": user.hashed_password or existing_row.hashed_password,
             "role": user.role or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
-            "is_superuser": user.is_superuser if user.is_superuser is not None else existing_row.is_superuser,
             "stripe_customer_id": user.stripe_customer_id or existing_row.stripe_customer_id,
         }
 

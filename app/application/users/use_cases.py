@@ -47,7 +47,6 @@ class UserService:
             hashed_password = hashed,
             role="user",
             is_active = True,
-            is_superuser = False,
             stripe_customer_id = stripe_customer_id,
         )
 

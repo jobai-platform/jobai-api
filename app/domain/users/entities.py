@@ -16,7 +16,6 @@ class User:
     hashed_password: Optional[str] = None
     role: str = "user"
     is_active: bool = True
-    is_superuser: bool = False
     stripe_customer_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

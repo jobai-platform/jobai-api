@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.users.ports import UserRepository
 from app.domain.users.entities import User
+from app.domain.users.value_objects import Email
 from app.infrastructure.persistence.models.user import UserModel
 
 
@@ -18,7 +19,7 @@ def _to_domain(row: UserModel) -> User:
     """
     return User(
         id=row.id,
-        email=row.email,
+        email=Email.from_raw(row.email),
         username=row.username,
         first_name=row.first_name,
         last_name=row.last_name,
@@ -39,7 +40,7 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: Email) -> Optional[User]:
         """
         Retrieve user by their email.
         :param email: User email.
@@ -95,7 +96,7 @@ class SqlAlchemyUserRepository(UserRepository):
         :return: User object.
         """
         new_user = UserModel(
-            email=user.email,
+            email=user.email.value,
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
@@ -126,7 +127,7 @@ class SqlAlchemyUserRepository(UserRepository):
             return None
 
         values = {
-            "email": user.email or existing_row.email,
+            "email": user.email.value or existing_row.email,
             "username": user.username or existing_row.username,
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,

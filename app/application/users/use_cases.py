@@ -3,6 +3,7 @@ from uuid import UUID
 
 from app.application.users.ports import UserRepository, PasswordHasher
 from app.domain.users.entities import User
+from app.domain.users.value_objects import Email
 
 
 class UserService:
@@ -29,15 +30,17 @@ class UserService:
         :param stripe_customer_id: Stripe customer ID.
         :return: User object.
         """
-        existing_user = await self.repo.get_by_email(email)
+        email_vo = Email.from_raw(email)
+
+        existing_user = await self.repo.get_by_email(email_vo)
         if existing_user:
-            raise ValueError(f"User with email {email} already exists")
+            raise ValueError(f"User with email {email_vo.value} already exists")
 
         hashed = self.pwd_hasher.hash_password(password) if password else None
 
         user = User(
             id = None,
-            email = email,
+            email = email_vo,
             username = username,
             first_name = first_name,
             last_name = last_name,

@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 
 from app.domain.users.entities import User
+from app.domain.users.value_objects import Email
 
 
 class UserRepository(ABC):
     """
     Abstract base class that represents a user repository.
     """
-
     @abstractmethod
     async def get_by_id(self, user_id: UUID) -> Optional[User]:
         """
@@ -20,7 +20,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: Email) -> Optional[User]:
         """
         Get user by email.
         :param email: User email.

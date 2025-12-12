@@ -3,11 +3,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+from app.domain.users.value_objects import Email
+
 
 @dataclass
 class User:
     id: Optional[UUID]
-    email: str
+    email: Email
     username: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None

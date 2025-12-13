@@ -7,7 +7,7 @@ from app.infrastructure.config.database import get_async_session
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
-from app.schemas.auth_schemas import TokenPairSchema
+from app.presentation.api.v1.schemas.auth import TokenPairSchema
 
 router = APIRouter(
     prefix="/auth",

@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from app.application.users.ports import PasswordHasher
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 class PasswordService:
     """ Hash and verify passwords by bcrypt. """

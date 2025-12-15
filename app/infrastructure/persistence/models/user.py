@@ -66,11 +66,6 @@ class UserModel(Base):
         nullable=False,
         default=True,
     )
-    is_superuser: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-    )
 
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(128),

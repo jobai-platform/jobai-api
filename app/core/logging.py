@@ -26,8 +26,7 @@ class CustomFormatter(logging.Formatter):
 
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno, self.format_string)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
+        return logging.Formatter(log_fmt).format(record)
 
 
 def setup_logging(disable_sqlalchemy: bool = True) -> None:

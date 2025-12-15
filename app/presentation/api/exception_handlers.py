@@ -19,7 +19,7 @@ from app.domain.common.exceptions import (
 )
 
 
-logger = logging.getLogger("app.exceptions")
+logger = logging.getLogger("uvicorn.error")
 
 
 def _payload_error_response(*, code: str, detail: str, **extra: Any) -> dict[str, Any]:
@@ -33,14 +33,19 @@ def _payload_error_response(*, code: str, detail: str, **extra: Any) -> dict[str
 
 
 def _payload_from_app_error(exc: AppError) -> dict[str, Any]:
-    return _payload_error_response(code=exc.code, detail=exc.detail)
+    return _payload_error_response(code=exc.code, detail=exc.details)
 
 
 def _code_from_status(status_code: int) -> str:
-    # Central mapping for native HTTP status codes to application error codes
+    """
+    Central mapping for native HTTP status codes to application error codes.
+    Keep these aligned with domain/presentation codes used elsewhere.
+    :param status_code: HTTP status code
+    :return: Application error code string
+    """
     return {
         400: "bad_request",
-        401: "insufficient_authentication",
+        401: "invalid_authentication",
         403: "insufficient_permissions",
         404: "resource_not_found",
         409: "conflict_error",
@@ -49,6 +54,9 @@ def _code_from_status(status_code: int) -> str:
 
 
 def setup_exception_handlers(app: FastAPI) -> None:
+    # -------------------------
+    # Domain/Application errors
+    # -------------------------
     @app.exception_handler(BadRequestError)
     async def handle_bad_request(_: Request, exc: BadRequestError):
         return JSONResponse(
@@ -91,9 +99,9 @@ def setup_exception_handlers(app: FastAPI) -> None:
             content=_payload_from_app_error(exc)
         )
 
-
-    # --- FastAPI / Pydantic exception handlers ---
-
+    # -------------------------
+    # FastAPI/Pydantic validation
+    # -------------------------
     @app.exception_handler(RequestValidationError)
     async def handle_request_validation_error(_: Request, exc: RequestValidationError):
         # Pydantic-style validation error
@@ -101,14 +109,18 @@ def setup_exception_handlers(app: FastAPI) -> None:
             status_code=422,
             content=_payload_error_response(
                 code="validation_error",
-                detail="Request validation failed",
-                errors=exc.errors(),
+                detail="Validation error",
+                # errors=exc.errors()
+                errors=[
+                    {"loc": ["body", "email"], "msg": "...", "type": "..."}
+                ],
             )
         )
 
-
-    # --- Starlette HTTPException ( including OAuth2 errors if auto_error=True, etc. ) ---
-
+    # -------------------------
+    # Starlette/FastAPI HTTPException
+    # (e.g. 404 Not Found route, 405, etc.)
+    # -------------------------
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(_: Request, exc: StarletteHTTPException):
         # Normalize FastAPI / Starlette HTTP exceptions
@@ -120,15 +132,16 @@ def setup_exception_handlers(app: FastAPI) -> None:
             content=_payload_error_response(
                 code=code,
                 detail=detail
-            )
+            ),
+            headers=getattr(exc, "headers", None)
         )
 
-
-    # --- Catch-all 500 handler exception ---
-
+    # -------------------------
+    # Catch-all 500
+    # -------------------------
     @app.exception_handler(Exception)
-    async def handle_generic_exception(request: Request, exc: Exception):
-        logger.error(f"Unhandled exception on $s $s", request.method, request.url)
+    async def handle_unexpected_exception(_: Request, exc: Exception):
+        logger.error("Unhandled exception", exc_info=exc)
 
         payload = _payload_error_response(
             code="internal_server_error",
@@ -142,5 +155,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "message": str(exc)
             }
 
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=payload)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=payload
+        )
 

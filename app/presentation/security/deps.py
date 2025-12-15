@@ -1,8 +1,9 @@
 from typing import Any, Mapping
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
+from starlette.requests import Request
 
 from app.domain.common.exceptions import UnauthorizedError, ForbiddenError
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
@@ -34,15 +35,17 @@ def _forbidden() -> None:
 
 
 async def get_current_claims(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     jwt_service: JWTTokenServiceAdapter = Depends(get_jwt_token_service),
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     """
     Dependency to get the current JWT claims from the token.
     Expected:
         - sub: UUID of the user
         - role: Role of the user
         - email: Email of the user (optional)
+    :param request: Starlette Request object
     :param token: JWT token from the request
     :param jwt_service: JWTTokenServiceAdapter instance
     :return: User ID extracted from the token
@@ -51,12 +54,21 @@ async def get_current_claims(
         _unauthorized()
 
     try:
-        return dict(jwt_service.decode_token(token))
+        # return dict(jwt_service.decode_token(token))
+        claims = jwt_service.decode_token(token)
+
+        # Stash claims for logs/handlers
+        request.state.jwt_claims = claims
+        request.state.user_id = claims.get("sub")
+        request.state.user_role = claims.get("role")
+        request.state.user_email = claims.get("email")
+
+        return claims
     except Exception:
         _unauthorized()
 
 
-async def get_current_user_id(claims: Mapping[str, Any] = Depends(get_current_claims)) -> UUID:
+async def get_current_user_id(claims: Mapping[str, Any] = Depends(get_current_claims)) -> UUID | None:
     """
     Dependency to get the current user ID from the JWT claims.
     :param claims: JWT claims from the token

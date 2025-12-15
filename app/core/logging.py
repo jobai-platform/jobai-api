@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from app.core.config import settings
+
 
 class CustomFormatter(logging.Formatter):
     """
@@ -32,13 +34,18 @@ class CustomFormatter(logging.Formatter):
 def setup_logging(disable_sqlalchemy: bool = True) -> None:
     """
     Set up logging configuration with custom formatter.
+    - dev: Logs INFO if DEBUG is set
+    - prod: INFO logs only
+    Uvicorn will still manage its own loggers, but we align formatting.
     """
+    level = logging.DEBUG if settings.DEBUG else logging.INFO
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
     handler.setFormatter(CustomFormatter())
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(level)
     root_logger.handlers = []
     root_logger.addHandler(handler)
 

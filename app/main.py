@@ -4,16 +4,19 @@ from starlette.middleware.cors import CORSMiddleware
 from app.core.handlers import setup_routers
 from app.core.logging import setup_logging
 from app.presentation.api.exception_handlers import setup_exception_handlers
+from app.presentation.middlewares.request_context import RequestContextMiddleware
 
 
 def create_app() -> FastAPI:
     # Setup logging, config, database connections, etc. here if needed
-    setup_logging(disable_sqlalchemy=True)
+    setup_logging()
 
     app = FastAPI(
         title="JobAI API Platform",
         version="1.0.0",
     )
+
+    app.add_middleware(RequestContextMiddleware)
 
     setup_routers(app, prefix="/api/v1")
     setup_exception_handlers(app) # This need to be called on the handler.py

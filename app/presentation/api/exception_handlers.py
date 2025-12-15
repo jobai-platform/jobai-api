@@ -19,7 +19,7 @@ from app.domain.common.exceptions import (
 )
 
 
-logger = logging.getLogger("uvicorn.error")
+logger = logging.getLogger("app.exceptions")
 
 
 def _payload_error_response(*, code: str, detail: str, **extra: Any) -> dict[str, Any]:
@@ -53,47 +53,64 @@ def _code_from_status(status_code: int) -> str:
     }.get(status_code, "http_error")
 
 
+def _log_context(request: Request) -> dict[str, Any]:
+    return {
+        "request_id": getattr(request.state, "request_id", None),
+        "method": request.method,
+        "url": str(request.url),
+        "user_id": getattr(request.state, "user_id", None),
+        "user_email": getattr(request.state, "user_email", None),
+        "user_role": getattr(request.state, "user_role", None),
+    }
+
+
 def setup_exception_handlers(app: FastAPI) -> None:
     # -------------------------
     # Domain/Application errors
     # -------------------------
     @app.exception_handler(BadRequestError)
-    async def handle_bad_request(_: Request, exc: BadRequestError):
+    async def handle_bad_request(request: Request, exc: BadRequestError):
+        logger.info(f"BadRequestError", extra=_log_context(request))
         return JSONResponse(
             status_code=400,
             content=_payload_from_app_error(exc)
         )
 
     @app.exception_handler(UnauthorizedError)
-    async def handle_unauthorized(_: Request, exc: UnauthorizedError):
+    async def handle_unauthorized(request: Request, exc: UnauthorizedError):
+        logger.info("UnauthorizedError", extra=_log_context(request))
         return JSONResponse(
             status_code=401,
             content=_payload_from_app_error(exc)
         )
 
     @app.exception_handler(ForbiddenError)
-    async def handle_forbidden(_: Request, exc: ForbiddenError):
+    async def handle_forbidden(request: Request, exc: ForbiddenError):
+        logger.info("ForbiddenError", extra=_log_context(request))
         return JSONResponse(
             status_code=403,
             content=_payload_from_app_error(exc)
         )
 
     @app.exception_handler(NotFoundError)
-    async def handle_not_found(_: Request, exc: NotFoundError):
+    async def handle_not_found(request: Request, exc: NotFoundError):
+        logger.info("NotFoundError", extra=_log_context(request))
         return JSONResponse(
             status_code=404,
             content=_payload_from_app_error(exc)
         )
 
     @app.exception_handler(ConflictError)
-    async def handle_conflict(_: Request, exc: ConflictError):
+    async def handle_conflict(request: Request, exc: ConflictError):
+        logger.info("ConflictError", extra=_log_context(request))
         return JSONResponse(
             status_code=409,
             content=_payload_from_app_error(exc)
         )
 
     @app.exception_handler(ValidationError)
-    async def handle_validation_error(_: Request, exc: ValidationError):
+    async def handle_validation_error(request: Request, exc: ValidationError):
+        logger.info("ValidationError", extra=_log_context(request))
         return JSONResponse(
             status_code=422,
             content=_payload_from_app_error(exc)
@@ -103,7 +120,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
     # FastAPI/Pydantic validation
     # -------------------------
     @app.exception_handler(RequestValidationError)
-    async def handle_request_validation_error(_: Request, exc: RequestValidationError):
+    async def handle_request_validation_error(request: Request, exc: RequestValidationError):
+        logger.info("RequestValidationError", extra=_log_context(request))
         # Pydantic-style validation error
         return JSONResponse(
             status_code=422,
@@ -122,15 +140,15 @@ def setup_exception_handlers(app: FastAPI) -> None:
     # (e.g. 404 Not Found route, 405, etc.)
     # -------------------------
     @app.exception_handler(StarletteHTTPException)
-    async def handle_http_exception(_: Request, exc: StarletteHTTPException):
+    async def handle_http_exception(request: Request, exc: StarletteHTTPException):
         # Normalize FastAPI / Starlette HTTP exceptions
+        logger.info("HTTPException", extra={**_log_context(request), "status_code": exc.status_code})
         detail = exc.detail if isinstance(exc.detail, str) else "HTTP error occurred"
-        code = _code_from_status(exc.status_code)
 
         return JSONResponse(
             status_code=exc.status_code,
             content=_payload_error_response(
-                code=code,
+                code=_code_from_status(exc.status_code),
                 detail=detail
             ),
             headers=getattr(exc, "headers", None)
@@ -140,8 +158,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
     # Catch-all 500
     # -------------------------
     @app.exception_handler(Exception)
-    async def handle_unexpected_exception(_: Request, exc: Exception):
-        logger.error("Unhandled exception", exc_info=exc)
+    async def handle_unexpected_exception(request: Request, exc: Exception):
+        logger.error("Unhandled exception", extra=_log_context(request))
 
         payload = _payload_error_response(
             code="internal_server_error",

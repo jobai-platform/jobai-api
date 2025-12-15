@@ -10,6 +10,6 @@ class Settings:
   REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('REFRESH_TOKEN', 7))
   FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN')
   DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./test.db')
-  DEBUG = os.getenv('DEBUG', 'false').lower() in ('true', '1', 't')
+  DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
 settings = Settings()

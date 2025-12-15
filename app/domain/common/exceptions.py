@@ -11,6 +11,10 @@ class AppError(Exception):
     code : str
     details: str = "An error occurred"
 
+    def __init__(self, *args: object):
+        super().__init__(args)
+        self.detail = None
+
     def __str__(self) -> str:
         return f"{self.code}: {self.details}"
 

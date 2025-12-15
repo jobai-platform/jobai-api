@@ -22,7 +22,8 @@ async def test_get_me_returns_404_for_nonexistent_user(client, jwt_service):
     )
     assert response.status_code == 404
     assert response.json() == {
-        "detail": "User not found"
+        "detail": "User not found.",
+        "code": "user_not_found",
     }
 
 

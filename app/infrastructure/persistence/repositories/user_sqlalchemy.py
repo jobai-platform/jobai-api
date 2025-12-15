@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import Optional, Sequence
 
 from uuid import UUID
@@ -39,14 +38,16 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: Email) -> Optional[User]:
+    async def get_by_email(self, email: str | Email) -> Optional[User]:
         """
         Retrieve user by their email.
         :param email: User email.
         :return: User object.
         """
+        email_str = str(email) if isinstance(email, Email) else str(email).strip().lower()
+
         result = await self.session.execute(
-            select(UserModel).where(UserModel.email == email)
+            select(UserModel).where(UserModel.email == email_str)
         )
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
@@ -94,8 +95,17 @@ class SqlAlchemyUserRepository(UserRepository):
         :param user: User object.
         :return: User object.
         """
+        # Accept Email VO or raw string (or None)
+        if getattr(user, "email", None) is not None:
+            if isinstance(user.email, Email):
+                email_val = user.email.value
+            else:
+                email_val = str(user.email).strip().lower() if user.email else None
+        else:
+            email_val = None
+
         new_user = UserModel(
-            email=user.email.value,
+            email=email_val,
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
@@ -124,8 +134,16 @@ class SqlAlchemyUserRepository(UserRepository):
         if not existing_row:
             return None
 
+        # Safely extract email string if present
+        email_value = None
+        if getattr(user, "email", None) is not None:
+            if isinstance(user.email, Email):
+                email_value = user.email.value
+            else:
+                email_value = str(user.email).strip().lower() if user.email else None
+
         values = {
-            "email": user.email.value or existing_row.email,
+            "email": email_value or existing_row.email,
             "username": user.username or existing_row.username,
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,

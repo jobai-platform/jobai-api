@@ -1,6 +1,7 @@
 import pytest
 
 from app.application.users.use_cases import UserService
+from app.domain.common.exceptions import ConflictError
 from app.domain.users.value_objects import Email
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
@@ -34,16 +35,18 @@ async def test_register_creates_user_with_hashed_password():
     assert user.role == "user"
     assert user.is_active is True
 
+
 @pytest.mark.asyncio
 async def test_register_fails_if_email_already_exists_normalized():
     user_repo = InMemoryUserRepository()
     hashing_service = DummyHashingService()
     service = UserService(user_repo=user_repo, pwd_hasher=hashing_service)
 
-    await service.register(email="USER@example.com", password="secret")
+    await service.register(email="USER@example.com", password="securepassword")
 
-    with pytest.raises(ValueError):
-        await service.register(email="  user@EXAMPLE.com  ", password="other")
+    with pytest.raises(ConflictError):
+        await service.register(email="  user@EXAMPLE.com  ", password="othersecurepassword")
+
 
 @pytest.mark.asyncio
 async def test_register_allows_user_without_password():

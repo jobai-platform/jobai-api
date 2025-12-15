@@ -20,7 +20,8 @@ class InMemoryUserRepository(UserRepository):
         return self._users_by_id.get(str(user_id))
 
     async def get_by_email(self, email: Email) -> Optional[User]:
-        return self._users_by_email.get(email.value)
+        email_str = str(email.value) if isinstance(email, Email) else str(email).strip().lower()
+        return self._users_by_email.get(email_str)
 
     async def list_all(
         self,

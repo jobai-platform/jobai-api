@@ -32,3 +32,7 @@ class UserUpdate(BaseModel):
     stripe_customer_id: str | None = None
     is_active: bool | None = None
     role: str | None = None
+
+
+class UsersCountResponse(BaseModel):
+    total: int

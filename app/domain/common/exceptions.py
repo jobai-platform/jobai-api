@@ -5,8 +5,8 @@ from dataclasses import dataclass
 class AppError(Exception):
     """
     Base error for domain-application specific errors.
-    code: A machine-readable error identifier for programmatic handling.
-    details: Additional context or information about the error.
+    - code: A machine-readable error identifier for programmatic handling.
+    - details: Additional context or information about the error.
     """
     code : str
     details: str = "An error occurred"

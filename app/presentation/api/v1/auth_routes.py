@@ -43,8 +43,6 @@ async def login(
     """
     Oauth2-compatible login, get an access token and a refresh token for future requests.
     :param form_data: OAuth2PasswordRequestForm
-    :param form_data.username: str
-    :param form_data.password: str
     :param auth_service: AuthService
     :return: TokenPair
     """

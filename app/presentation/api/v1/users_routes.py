@@ -79,29 +79,8 @@ async def get_me(
 
 
 @router.get(
-    "",
-    status_code=status.HTTP_200_OK,
-    response_model=list[UserRead],
-    dependencies=[Depends(require_admin_role)],
-    summary="List users",
-    description="List all users in the system.",
-    response_description="List all users in the system",
-)
-async def list_users(
-    skip: int = 0,
-    limit: int = 50,
-    sort_by: str | None = None,
-    ascending: bool | None = True,
-    service: UserService = Depends(get_user_service),
-) -> list[UserRead]:
-    users = await service.list_users(skip=skip, limit=limit, sort_by=sort_by, ascending=ascending)
-    return [to_user_read(u) for u in users]
-
-
-@router.get(
     "/{user_id}",
     status_code=status.HTTP_200_OK,
-    # response_model=UserRead,
     dependencies=[Depends(require_admin_role)],
     summary="Get user by ID",
     description="Retrieve a user by their ID.",
@@ -193,20 +172,3 @@ async def delete_user(
 ) -> Response:
     await service.delete_user(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get(
-    "/count",
-    status_code=status.HTTP_200_OK,
-    response_model=UsersCountResponse,
-    dependencies=[Depends(require_admin_role)],
-    summary="Get total user count",
-    description="Retrieve the total number of users in the system.",
-    response_description="Total number of users",
-)
-async def count_users(
-    service: UserService = Depends(get_user_service),
-) -> UsersCountResponse:
-    total = await service.count_users()
-    return UsersCountResponse(total=total)
-

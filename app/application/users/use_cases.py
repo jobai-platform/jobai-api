@@ -101,7 +101,10 @@ class UserService:
         :param ascending: Sort by ascending.
         :return: Collection of users.
         """
-        return await self.repo.list_all(skip=skip, limit=limit, sort_by=sort_by, ascending=ascending)
+        all_users = await self.repo.list_all(skip=skip, limit=limit, sort_by=sort_by, ascending=ascending)
+        # Exclude soft-deleted users by default
+        visible = [u for u in all_users if not getattr(u, "deletion", None) or not u.deletion.is_deleted]
+        return visible
 
     async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """
@@ -109,7 +112,13 @@ class UserService:
         :param user_id: User ID.
         :return: User object.
         """
-        return await self.repo.get_by_id(user_id)
+        user = await self.repo.get_by_id(user_id)
+        if not user:
+            return None
+        if getattr(user, "deletion", None) and user.deletion.is_deleted:
+            # treat soft-deleted users as not found for read operations
+            return None
+        return user
 
     async def count_users(self) -> int:
         """

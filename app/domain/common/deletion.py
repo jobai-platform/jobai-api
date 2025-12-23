@@ -10,7 +10,7 @@ class DeletionInfo:
     scheduled_purge_at: Optional[datetime] = None
 
     def __post_init__(self):
-        # ensure timezone-aware datetimes (UTC)
+        # ensure timezone-aware datetime (UTC)
         if self.deleted_at is not None and self.deleted_at.tzinfo is None:
             raise ValueError("deleted_at must be timezone-aware")
         if self.deleted_at is not None and self.deleted_at > datetime.now(timezone.utc):

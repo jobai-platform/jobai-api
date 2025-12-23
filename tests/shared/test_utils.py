@@ -1,6 +1,3 @@
-# tests/shared/test_utils.py
-from __future__ import annotations
-
 from sqlalchemy import ForeignKey
 
 from app.shared.utils import make_foreign_key, set_orm_attributes, timestamp_to_datetime
@@ -10,7 +7,7 @@ def test_make_foreign_key_returns_foreign_key() -> None:
     fk = make_foreign_key("id", "users")
     assert isinstance(fk, ForeignKey)
     # The referenced target should be visible in the internal repr/string form
-    assert "users.id" in str(fk.column)
+    assert "users.id" in str(fk)
 
 
 def test_set_orm_attributes_sets_multiple_fields() -> None:

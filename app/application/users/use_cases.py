@@ -1,5 +1,6 @@
 from typing import Optional, Sequence
 from uuid import UUID
+from datetime import datetime
 
 from app.application.users.ports import UserRepository, PasswordHasher
 from app.domain.common.exceptions import ConflictError, BadRequestError, NotFoundError
@@ -148,6 +149,35 @@ class UserService:
                 code="user_not_found",
                 details="User not found.",
             )
-        # perform delete on repo
-        await self.repo.delete(user_id)
+        # perform soft-delete via domain service
+        from app.domain.common.domain_services import SoftDeleteService
+        service = SoftDeleteService()
+        deletion = service.mark_deleted(existing_user)
+
+        await self.repo.soft_delete(user_id, deletion)
         return None
+
+    async def restore_user(self, user_id: UUID) -> None:
+        """
+        Restore a soft-deleted user by ID.
+        :param user_id: User ID.
+        :return: None.
+        """
+        existing_user = await self.repo.get_by_id(user_id)
+        if not existing_user:
+            raise NotFoundError(code="user_not_found", details="User not found.")
+        # if not deleted, no-op
+        if not existing_user.deletion.is_deleted:
+            return None
+
+        await self.repo.restore(user_id)
+        return None
+
+    async def purge_users_older_than(self, cutoff: datetime) -> int:
+        """
+        Permanently purge soft-deleted users older than cutoff.
+        :param cutoff: Cutoff datetime.
+        :return: Number of users deleted.
+        """
+        deleted_count = await self.repo.purge_older_than(cutoff)
+        return deleted_count

@@ -1,4 +1,5 @@
 from typing import Optional, Sequence
+from datetime import datetime
 
 from uuid import UUID
 from sqlalchemy import select, update, func
@@ -8,6 +9,7 @@ from app.application.users.ports import UserRepository
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email
 from app.infrastructure.persistence.models.user import UserModel
+from app.domain.common.deletion import DeletionInfo
 
 
 def _to_domain(row: UserModel) -> User:
@@ -16,6 +18,12 @@ def _to_domain(row: UserModel) -> User:
     :param row: User Model
     :return: User Object.
     """
+    deletion = DeletionInfo(
+        is_deleted=bool(getattr(row, "is_deleted", False)),
+        deleted_at=getattr(row, "deleted_at", None),
+        scheduled_purge_at=getattr(row, "scheduled_purge_at", None),
+    )
+
     return User(
         id=row.id,
         email=Email.from_raw(row.email),
@@ -28,6 +36,7 @@ def _to_domain(row: UserModel) -> User:
         stripe_customer_id=row.stripe_customer_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        deletion=deletion,
     )
 
 
@@ -179,6 +188,41 @@ class SqlAlchemyUserRepository(UserRepository):
         if user:
             await self.session.delete(user)
             await self.session.commit()
+
+    async def soft_delete(self, user_id: UUID, deletion: object) -> None:
+        """Mark the user as soft-deleted by setting is_deleted/deleted_at/scheduled_purge_at."""
+        # Accept either DeletionInfo VO or a simple object with attributes
+        deleted_at = getattr(deletion, "deleted_at", None)
+        scheduled = getattr(deletion, "scheduled_purge_at", None)
+
+        await self.session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(is_deleted=True, deleted_at=deleted_at, scheduled_purge_at=scheduled)
+        )
+        await self.session.commit()
+
+    async def restore(self, user_id: UUID) -> None:
+        await self.session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(is_deleted=False, deleted_at=None, scheduled_purge_at=None)
+        )
+        await self.session.commit()
+
+    async def purge_older_than(self, cutoff: datetime) -> int:
+        """Permanently delete rows that are soft-deleted and older than cutoff; return count."""
+        # Use DELETE ... RETURNING to get count when supported
+        stmt = select(UserModel).where(UserModel.is_deleted == True, UserModel.deleted_at <= cutoff)
+        result = await self.session.execute(stmt)
+        rows = result.scalars().all()
+        count = 0
+        for row in rows:
+            await self.session.delete(row)
+            count += 1
+        if count:
+            await self.session.commit()
+        return count
 
     async def count(self) -> int:
         """

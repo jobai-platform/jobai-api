@@ -86,10 +86,28 @@ class UserModel(Base):
         onupdate=func.now(),
     )
 
+    # Soft delete fields
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
+    scheduled_purge_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
     fk_user = make_foreign_key(ID_COL, TABLE_NAME)
 
     # NOTE : blacklist_tokens a plus sa place dans un contexte Auth / Security
     # on pourra le déplacer plus tard dans une couche auth dédiée.
     blacklist_tokens = set()
-
 

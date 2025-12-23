@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.domain.users.value_objects import Email
+from app.domain.common.deletion import DeletionInfo
 
 
 @dataclass
@@ -19,3 +20,5 @@ class User:
     stripe_customer_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Deletion / soft-delete information
+    deletion: DeletionInfo = DeletionInfo()

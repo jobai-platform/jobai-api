@@ -41,6 +41,8 @@ async def create_test_schema(async_engine):
     async with async_engine.begin() as conn:
         if DB_SCHEMA:
             await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'))
+        # Ensure schema matches current models: drop all then recreate to avoid stale tables
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     yield

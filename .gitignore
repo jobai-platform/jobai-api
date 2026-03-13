@@ -7,3 +7,8 @@ __pycache__/
 *.pyo
 .mypy_cache/
 pytest_cache/
+
+poetry.lock
+
+_legacy
+old

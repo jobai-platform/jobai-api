@@ -9,7 +9,7 @@ from sqlalchemy.sql.functions import func
 from app.constants.general import DB_SCHEMA
 from app.constants.users import TABLE_NAME, ID_COL
 from app.infrastructure.config.database import Base
-from old.app.utils.utils import make_foreign_key
+from _legacy.app.utils.utils import make_foreign_key
 
 
 class UserModel(Base):

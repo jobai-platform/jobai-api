@@ -37,6 +37,7 @@ asyncpg = "^0.30.0"
 marshmallow = "^4.0.1"
 bcrypt = "^5.0.0"
 pytest = "^8.4.2"
+stripe = "^14.4.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

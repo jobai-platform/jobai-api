@@ -1,3 +1,0 @@
-DB_SCHEMA = "public"
-MAX_LIMIT = 5000
-DEFAULT_LIMIT = 10

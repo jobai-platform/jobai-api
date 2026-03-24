@@ -1,15 +1,17 @@
 from uuid import UUID
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence
+from datetime import datetime
 
 from app.domain.users.entities import User
+from app.domain.users.value_objects import Email
+from app.domain.common.deletion import DeletionInfo
 
 
 class UserRepository(ABC):
     """
     Abstract base class that represents a user repository.
     """
-
     @abstractmethod
     async def get_by_id(self, user_id: UUID) -> Optional[User]:
         """
@@ -20,7 +22,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: Email) -> Optional[User]:
         """
         Get user by email.
         :param email: User email.
@@ -72,6 +74,21 @@ class UserRepository(ABC):
     @abstractmethod
     async def delete(self, user_id: UUID) -> None:
         """ Delete user by id. """
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def soft_delete(self, user_id: UUID, deletion: DeletionInfo) -> None:
+        """Mark user as soft-deleted by setting deletion info."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def restore(self, user_id: UUID) -> None:
+        """Restore a soft-deleted user (clear deletion info)."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def purge_older_than(self, cutoff: datetime) -> int:
+        """Permanently delete rows soft-deleted at or before cutoff. Returns count."""
         raise NotImplementedError()
 
 

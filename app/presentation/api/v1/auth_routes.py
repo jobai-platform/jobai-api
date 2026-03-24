@@ -7,7 +7,7 @@ from app.infrastructure.config.database import get_async_session
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
-from app.schemas.auth_schemas import TokenPair
+from app.presentation.api.v1.schemas.auth import TokenPairSchema
 
 router = APIRouter(
     prefix="/auth",
@@ -31,7 +31,7 @@ async def get_auth_service(
 
 @router.post(
     "/token",
-    response_model=TokenPair,
+    response_model=TokenPairSchema,
     status_code=status.HTTP_200_OK,
     summary="User login and obtain JWT tokens",
     description="Authenticate user and return JWT access and refresh tokens.",
@@ -43,8 +43,6 @@ async def login(
     """
     Oauth2-compatible login, get an access token and a refresh token for future requests.
     :param form_data: OAuth2PasswordRequestForm
-    :param form_data.username: str
-    :param form_data.password: str
     :param auth_service: AuthService
     :return: TokenPair
     """
@@ -53,7 +51,7 @@ async def login(
 
     try:
         tokens = await auth_service.login(email=email, password=password)
-        return TokenPair(
+        return TokenPairSchema(
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token,
             token_type=tokens.token_type,

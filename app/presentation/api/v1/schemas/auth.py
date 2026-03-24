@@ -3,7 +3,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-class TokenPair(BaseModel):
+class TokenPairSchema(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "Bearer"

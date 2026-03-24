@@ -14,7 +14,7 @@ def setup_routers(app: FastAPI, prefix: str = "/api/v1") -> None:
     """
     routers = [
         users_router,
-        # auth_router,
+        auth_router,
         stripe_router,
 
     ]

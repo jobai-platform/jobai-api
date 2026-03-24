@@ -1,5 +1,5 @@
-from abc import ABC
 from typing import Optional, Sequence
+from datetime import datetime
 
 from uuid import UUID
 from sqlalchemy import select, update, func
@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.users.ports import UserRepository
 from app.domain.users.entities import User
+from app.domain.users.value_objects import Email
 from app.infrastructure.persistence.models.user import UserModel
+from app.domain.common.deletion import DeletionInfo
 
 
 def _to_domain(row: UserModel) -> User:
@@ -16,19 +18,25 @@ def _to_domain(row: UserModel) -> User:
     :param row: User Model
     :return: User Object.
     """
+    deletion = DeletionInfo(
+        is_deleted=bool(getattr(row, "is_deleted", False)),
+        deleted_at=getattr(row, "deleted_at", None),
+        scheduled_purge_at=getattr(row, "scheduled_purge_at", None),
+    )
+
     return User(
         id=row.id,
-        email=row.email,
+        email=Email.from_raw(row.email),
         username=row.username,
         first_name=row.first_name,
         last_name=row.last_name,
         hashed_password=row.hashed_password,
         role=row.role,
         is_active=row.is_active,
-        is_superuser=row.is_superuser,
         stripe_customer_id=row.stripe_customer_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        deletion=deletion,
     )
 
 
@@ -39,14 +47,16 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str | Email) -> Optional[User]:
         """
         Retrieve user by their email.
         :param email: User email.
         :return: User object.
         """
+        email_str = str(email) if isinstance(email, Email) else str(email).strip().lower()
+
         result = await self.session.execute(
-            select(UserModel).where(UserModel.email == email)
+            select(UserModel).where(UserModel.email == email_str)
         )
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
@@ -94,15 +104,23 @@ class SqlAlchemyUserRepository(UserRepository):
         :param user: User object.
         :return: User object.
         """
+        # Accept Email VO or raw string (or None)
+        if getattr(user, "email", None) is not None:
+            if isinstance(user.email, Email):
+                email_val = user.email.value
+            else:
+                email_val = str(user.email).strip().lower() if user.email else None
+        else:
+            email_val = None
+
         new_user = UserModel(
-            email=user.email,
+            email=email_val,
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
             hashed_password=user.hashed_password,
             role=user.role,
             is_active=user.is_active,
-            is_superuser=user.is_superuser,
             stripe_customer_id=user.stripe_customer_id,
         )
 
@@ -125,15 +143,22 @@ class SqlAlchemyUserRepository(UserRepository):
         if not existing_row:
             return None
 
+        # Safely extract email string if present
+        email_value = None
+        if getattr(user, "email", None) is not None:
+            if isinstance(user.email, Email):
+                email_value = user.email.value
+            else:
+                email_value = str(user.email).strip().lower() if user.email else None
+
         values = {
-            "email": user.email or existing_row.email,
+            "email": email_value or existing_row.email,
             "username": user.username or existing_row.username,
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,
             "hashed_password": user.hashed_password or existing_row.hashed_password,
             "role": user.role or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
-            "is_superuser": user.is_superuser if user.is_superuser is not None else existing_row.is_superuser,
             "stripe_customer_id": user.stripe_customer_id or existing_row.stripe_customer_id,
         }
 
@@ -163,6 +188,41 @@ class SqlAlchemyUserRepository(UserRepository):
         if user:
             await self.session.delete(user)
             await self.session.commit()
+
+    async def soft_delete(self, user_id: UUID, deletion: object) -> None:
+        """Mark the user as soft-deleted by setting is_deleted/deleted_at/scheduled_purge_at."""
+        # Accept either DeletionInfo VO or a simple object with attributes
+        deleted_at = getattr(deletion, "deleted_at", None)
+        scheduled = getattr(deletion, "scheduled_purge_at", None)
+
+        await self.session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(is_deleted=True, deleted_at=deleted_at, scheduled_purge_at=scheduled)
+        )
+        await self.session.commit()
+
+    async def restore(self, user_id: UUID) -> None:
+        await self.session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(is_deleted=False, deleted_at=None, scheduled_purge_at=None)
+        )
+        await self.session.commit()
+
+    async def purge_older_than(self, cutoff: datetime) -> int:
+        """Permanently delete rows that are soft-deleted and older than cutoff; return count."""
+        # Use DELETE ... RETURNING to get count when supported
+        stmt = select(UserModel).where(UserModel.is_deleted == True, UserModel.deleted_at <= cutoff)
+        result = await self.session.execute(stmt)
+        rows = result.scalars().all()
+        count = 0
+        for row in rows:
+            await self.session.delete(row)
+            count += 1
+        if count:
+            await self.session.commit()
+        return count
 
     async def count(self) -> int:
         """

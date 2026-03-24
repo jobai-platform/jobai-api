@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libhdf5-dev libc6-dev libssl-dev libblas-dev \
     liblapack-dev libcurl4-openssl-dev libffi-dev \
     libjpeg-dev zlib1g-dev libopenblas-dev git \
+    vim wget curl ca-certificates tree coreutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install Poetry

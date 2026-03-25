@@ -38,7 +38,7 @@ def get_subscription_repository(
 
 def get_billing_gateway() -> BillingGateway:
     """FastAPI dependency that provides a BillingGateway instance."""
-    return StripeGateway
+    return StripeGateway()
 
 def get_assign_freemium_on_signup_use_case(
     subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),

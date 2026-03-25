@@ -3,10 +3,12 @@ from sqlalchemy.dialects.postgresql.base import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.config.database import Base
+from app.constants.general import DB_SCHEMA
 
 
 class SubscriptionModel(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = {"schema": DB_SCHEMA}
 
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
@@ -15,7 +17,7 @@ class SubscriptionModel(Base):
     )
     user_id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey(f"{DB_SCHEMA}.users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,

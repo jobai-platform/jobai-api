@@ -2,8 +2,11 @@ import stripe
 from fastapi import APIRouter, status, Depends, HTTPException, Header, Request
 
 from app.application.billing.use_cases import CreateCheckoutSessionUseCase, HandleStripeWebhookUseCase
+from app.core.dependency import get_create_checkout_session_use_case, get_handle_stripe_webhook_use_case, \
+    get_billing_gateway
 from app.presentation.api.v1.schemas.billing import CreateCheckoutSessionResponse, StripeWebhookResponse
-from app.presentation.security.deps import get_current_user
+from uuid import UUID
+from app.presentation.security.deps import get_current_user_id
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
@@ -17,13 +20,13 @@ router = APIRouter(prefix="/stripe", tags=["Stripe"])
 )
 async def create_checkout_session(
     payload: CreateCheckoutSessionResponse,
-    current_user=Depends(get_current_user),
+    current_user_id: UUID = Depends(get_current_user_id),
     use_case: CreateCheckoutSessionUseCase = Depends(get_create_checkout_session_use_case),
 ):
 
     try:
         result = await use_case.execute(
-            user_id=current_user.id,
+            user_id=current_user_id,
             target_plan=payload.plan,
             success_url=str(payload.success_url),
             cancel_url=str(payload.cancel_url),
@@ -36,16 +39,17 @@ async def create_checkout_session(
         )
 
 @router.post(
-    "webhook",
+    "/webhook",
     summary="Stripe webhook",
     description="Stripe webhook",
-    response_model=str,
+    response_model=StripeWebhookResponse,
     response_description="Stripe webhook created",
 )
+
 async def stripe_webhook(
     request: Request,
     stripe_signature: str = Header(..., alias="Stripe-Signature"),
-    billing_gateway: Depends(get_billing_gateway),
+    billing_gateway = Depends(get_billing_gateway),
     use_case: HandleStripeWebhookUseCase = Depends(get_handle_stripe_webhook_use_case),
 ):
     payload = await request.body()

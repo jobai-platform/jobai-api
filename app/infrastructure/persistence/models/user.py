@@ -13,7 +13,7 @@ from app.shared.utils import make_foreign_key
 
 
 class UserModel(Base):
-    __tablename__ = TABLE_NAME
+    __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("email", name="uq_user_email"),
         {"schema": DB_SCHEMA},

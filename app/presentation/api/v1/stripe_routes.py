@@ -4,7 +4,11 @@ from fastapi import APIRouter, status, Depends, HTTPException, Header, Request
 from app.application.billing.use_cases import CreateCheckoutSessionUseCase, HandleStripeWebhookUseCase
 from app.core.dependency import get_create_checkout_session_use_case, get_handle_stripe_webhook_use_case, \
     get_billing_gateway
-from app.presentation.api.v1.schemas.billing import CreateCheckoutSessionResponse, StripeWebhookResponse
+from app.presentation.api.v1.schemas.billing import (
+    CreateCheckoutSessionRequest,
+    CreateCheckoutSessionResponse,
+    StripeWebhookResponse,
+)
 from uuid import UUID
 from app.presentation.security.deps import get_current_user_id
 
@@ -19,7 +23,7 @@ router = APIRouter(prefix="/stripe", tags=["Stripe"])
     response_description="Checkout session created",
 )
 async def create_checkout_session(
-    payload: CreateCheckoutSessionResponse,
+    payload: CreateCheckoutSessionRequest,
     current_user_id: UUID = Depends(get_current_user_id),
     use_case: CreateCheckoutSessionUseCase = Depends(get_create_checkout_session_use_case),
 ):

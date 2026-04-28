@@ -12,4 +12,11 @@ class Settings:
   DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./test.db')
   DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
+  # Stripe API
+  STRIPE_SECRET_KEY: str = os.getenv('STRIPE_SECRET_KEY')
+  STRIPE_WEBHOOK_SECRET: str = os.getenv('STRIPE_WEBHOOK_SECRET')
+  STRIPE_PRO_PRICE_LOOCKUP_KEY: str = os.getenv('STRIPE_PRO_PRICE_LOOCKUP_KEY')
+  STRIPE_ENTERPRISE_PRICE__LOOCKUP_KEY: str = os.getenv('STRIPE_ENTERPRISE_PRICE_LOOCKUP_KEY')
+
+
 settings = Settings()

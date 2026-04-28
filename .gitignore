@@ -10,4 +10,4 @@ pytest_cache/
 
 poetry.lock
 
-old
+_legacy

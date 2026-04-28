@@ -2,14 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from uuid import UUID
 
-from app.domain.billing.entities import Subscription
+from app.domain.billing.entities.subscription import Subscription
 
 
 class SubscriptionRepository(ABC):
     """
     Abstract base class that represents a subscription repository.
     """
-
     @abstractmethod
     async def get_by_user_id(self, user_id: UUID) -> Optional[Subscription]:
         """
@@ -51,12 +50,10 @@ class SubscriptionRepository(ABC):
         raise NotImplementedError()
 
 
-
 class BillingGateway(ABC):
     """
     Port for external billing provides (Stripe).
     """
-
     @abstractmethod
     async def create_checkout_session(
         self,
@@ -75,6 +72,21 @@ class BillingGateway(ABC):
         :param success_url: URL to redirect after successful payment.
         :param cancel_url: URL to redirect after canceled payment.
         :return: Checkout session URL.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def create_customer(
+        self,
+        *,
+        email: str,
+        user_id: UUID,
+    ) -> str:
+        """
+        Create a Stripe customer for a given user.
+        :param email: User email.
+        :param user_id: User ID.
+        :return: Stripe customer ID.
         """
         raise NotImplementedError()
 

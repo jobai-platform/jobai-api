@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from typing import Optional
 from uuid import UUID
 
-from app.domain.billing.enums import SubscriptionPlan, SubscriptionStatus
+from app.domain.billing.enums import Plan, SubscriptionStatus
 
 
 @dataclass
 class Subscription:
     user_id: UUID
-    plan: SubscriptionPlan
+    plan: Plan
     status: SubscriptionStatus
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
@@ -17,7 +17,7 @@ class Subscription:
     def create_freemium(cls, user_id: UUID) -> "Subscription":
         return cls(
             user_id=user_id,
-            plan=SubscriptionPlan.FREEMIUM,
+            plan=Plan.FREEMIUM,
             status=SubscriptionStatus.ACTIVE
         )
 
@@ -25,7 +25,7 @@ class Subscription:
     def assign_paid_plan(
         self,
         *,
-        plan: SubscriptionPlan,
+        plan: Plan,
         stripe_customer_id: Optional[str],
         stripe_subscription_id: Optional[str],
         status: SubscriptionStatus = SubscriptionStatus.PENDING,

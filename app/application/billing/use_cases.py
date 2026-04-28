@@ -3,8 +3,8 @@ from uuid import UUID
 from app.application.billing.dto import CheckoutSessionResult
 from app.application.billing.ports import SubscriptionRepository, BillingGateway
 from app.application.users.ports import UserRepository
-from app.domain.billing.entities import Subscription
-from app.domain.billing.enums import SubscriptionPlan, SubscriptionStatus
+from app.domain.billing.entities.subscription import Subscription
+from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.billing.services import map_stripe_subscription_status
 
 
@@ -56,11 +56,11 @@ class CreateCheckoutSessionUseCase:
         :param cancel_url: Cancel URL.
         :return: CheckoutSessionResult.
         """
-        if target_plan == SubscriptionPlan.FREEMIUM.value:
+        if target_plan == Plan.FREEMIUM.value:
             raise ValueError("Cannot create checkout session for freemium plan.")
 
         try:
-            plan = SubscriptionPlan(target_plan)
+            plan = Plan(target_plan)
         except ValueError as exception:
             raise ValueError("Invalid subscription plan.") from exception
 
@@ -109,7 +109,7 @@ class HandleStripeWebhookUseCase:
             return
 
         user_id = UUID(user_id_raw)
-        plan = SubscriptionPlan(plan_raw)
+        plan = Plan(plan_raw)
 
         subscription = await self.subscription_repository.get_by_user_id(user_id)
         if not subscription:

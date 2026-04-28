@@ -1,6 +1,8 @@
 .idea
 .env
 .copilot
+.claude/*
+CLAUDE.md
 
 __pycache__/
 *.pyc

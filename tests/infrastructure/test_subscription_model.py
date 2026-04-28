@@ -1,5 +1,5 @@
 from app.infrastructure.persistence.models.subscription import SubscriptionModel
-from app.domain.billing.enums import SubscriptionPlan, SubscriptionStatus
+from app.domain.billing.enums import Plan, SubscriptionStatus
 
 
 import pytest
@@ -14,7 +14,7 @@ async def test_subscription_model_crud(db_session, create_user_in_db):
         user_id=user.id,
         stripe_customer_id="cus_test",
         stripe_subscription_id="sub_test",
-        plan=SubscriptionPlan.PRO.value,
+        plan=Plan.PRO.value,
         status=SubscriptionStatus.ACTIVE.value,
     )
 
@@ -26,6 +26,6 @@ async def test_subscription_model_crud(db_session, create_user_in_db):
     fetched = await db_session.get(SubscriptionModel, sub.id)
     assert fetched is not None
     assert fetched.user_id == user.id
-    assert fetched.plan == SubscriptionPlan.PRO.value
+    assert fetched.plan == Plan.PRO.value
     assert fetched.status == SubscriptionStatus.ACTIVE.value
 

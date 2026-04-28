@@ -9,8 +9,8 @@ from app.application.billing.use_cases import (
     HandleStripeWebhookUseCase,
 )
 from app.application.billing.dto import CheckoutSessionResult
-from app.domain.billing.entities import Subscription
-from app.domain.billing.enums import SubscriptionPlan, SubscriptionStatus
+from app.domain.billing.entities.subscription import Subscription
+from app.domain.billing.enums import Plan, SubscriptionStatus
 
 
 class FakeSubscriptionRepo:
@@ -75,7 +75,7 @@ async def test_assign_freemium_on_signup_creates_if_not_exists():
 
     assert repo.get_by_user_id_calls == [user_id]
     assert repo.created is not None
-    assert sub.plan == SubscriptionPlan.FREEMIUM
+    assert sub.plan == Plan.FREEMIUM
     assert sub.status == SubscriptionStatus.ACTIVE
 
 
@@ -99,7 +99,7 @@ async def test_create_checkout_session_errors_and_success():
     uc = CreateCheckoutSessionUseCase(user_repository=user_repo, billing_gateway=fake_gateway)
 
     with pytest.raises(ValueError):
-        await uc.execute(user_id=fake_user.id, target_plan=SubscriptionPlan.FREEMIUM.value, success_url="a", cancel_url="b")
+        await uc.execute(user_id=fake_user.id, target_plan=Plan.FREEMIUM.value, success_url="a", cancel_url="b")
 
     # invalid plan
     with pytest.raises(ValueError):
@@ -108,10 +108,10 @@ async def test_create_checkout_session_errors_and_success():
     # user not found
     uc_no_user = CreateCheckoutSessionUseCase(user_repository=FakeUserRepo(user=None), billing_gateway=fake_gateway)
     with pytest.raises(ValueError):
-        await uc_no_user.execute(user_id=uuid.uuid4(), target_plan=SubscriptionPlan.PRO.value, success_url="a", cancel_url="b")
+        await uc_no_user.execute(user_id=uuid.uuid4(), target_plan=Plan.PRO.value, success_url="a", cancel_url="b")
 
     # success
-    result = await uc.execute(user_id=fake_user.id, target_plan=SubscriptionPlan.PRO.value, success_url="ok", cancel_url="nok")
+    result = await uc.execute(user_id=fake_user.id, target_plan=Plan.PRO.value, success_url="ok", cancel_url="nok")
     assert isinstance(result, CheckoutSessionResult)
     assert result.checkout_url == fake_gateway.checkout_url
     assert fake_gateway.created_sessions and fake_gateway.created_sessions[0]["email"] == fake_user.email
@@ -128,7 +128,7 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
         "type": "checkout.session.completed",
         "data": {
             "object": {
-                "metadata": {"user_id": str(user_id), "plan": SubscriptionPlan.PRO.value},
+                "metadata": {"user_id": str(user_id), "plan": Plan.PRO.value},
                 "customer": "cus_123",
                 "subscription": "sub_123",
             }
@@ -137,7 +137,7 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
 
     await uc.execute(event)
     assert repo.created is not None
-    assert repo.created.plan == SubscriptionPlan.PRO
+    assert repo.created.plan == Plan.PRO
     assert repo.created.status == SubscriptionStatus.PENDING
     assert repo.created.stripe_customer_id == "cus_123"
     assert repo.created.stripe_subscription_id == "sub_123"
@@ -151,7 +151,7 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
         "type": "checkout.session.completed",
         "data": {
             "object": {
-                "metadata": {"user_id": str(user_id), "plan": SubscriptionPlan.ENTERPRISE.value},
+                "metadata": {"user_id": str(user_id), "plan": Plan.ENTERPRISE.value},
                 "customer": "cus_999",
                 "subscription": "sub_999",
             }
@@ -160,7 +160,7 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
 
     await uc2.execute(event2)
     assert repo2.updated is not None
-    assert repo2.updated.plan == SubscriptionPlan.ENTERPRISE
+    assert repo2.updated.plan == Plan.ENTERPRISE
     assert repo2.updated.status == SubscriptionStatus.PENDING
     assert repo2.updated.stripe_customer_id == "cus_999"
     assert repo2.updated.stripe_subscription_id == "sub_999"
@@ -170,7 +170,7 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
 async def test_handle_subscription_deleted_marks_canceled():
     user_id = uuid.uuid4()
     sub = Subscription.create_freemium(user_id=user_id)
-    sub.assign_paid_plan(plan=SubscriptionPlan.PRO, stripe_customer_id="c", stripe_subscription_id="sub_del", status=SubscriptionStatus.ACTIVE)
+    sub.assign_paid_plan(plan=Plan.PRO, stripe_customer_id="c", stripe_subscription_id="sub_del", status=SubscriptionStatus.ACTIVE)
 
     repo = FakeSubscriptionRepo(existing=sub)
     uc = HandleStripeWebhookUseCase(subscription_repository=repo)

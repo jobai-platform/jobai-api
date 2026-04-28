@@ -13,3 +13,18 @@ class CreateCheckoutSessionResponse(BaseModel):
 
 class StripeWebhookResponse(BaseModel):
     received: bool
+
+
+class SubscriptionRead(BaseModel):
+    """
+    DTO for subscription read - used for the frontend Dashboard
+    """
+    user_id: str
+    plan: str
+    status: str
+    stripe_customer_id: str | None = None
+    stripe_subscription_id: str | None = None
+
+    model_config = {
+        "from_attributes": True,
+    }

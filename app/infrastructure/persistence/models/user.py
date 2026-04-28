@@ -105,9 +105,9 @@ class UserModel(Base):
         index=True,
     )
 
-    fk_user = make_foreign_key(ID_COL, TABLE_NAME)
+    # fk_user = make_foreign_key(ID_COL, TABLE_NAME)
 
-    # NOTE : blacklist_tokens a plus sa place dans un contexte Auth / Security
-    # on pourra le déplacer plus tard dans une couche auth dédiée.
-    blacklist_tokens = set()
+    # Auth: token blacklist
+    blacklist_tokens: set = set()
+    # NOTE: fk_user has deleted - make_foreign_key() return ForeignKey orpheline, so we manage the relationship manually in the repository layer when needed.
 

@@ -15,6 +15,10 @@ class StripeWebhookResponse(BaseModel):
     received: bool
 
 
+class SyncStripePricesResponse(BaseModel):
+    synced_count: int
+
+
 class SubscriptionRead(BaseModel):
     """
     DTO for subscription read - used for the frontend Dashboard
@@ -24,6 +28,7 @@ class SubscriptionRead(BaseModel):
     status: str
     stripe_customer_id: str | None = None
     stripe_subscription_id: str | None = None
+    billing_price_id: str | None = None
 
     model_config = {
         "from_attributes": True,

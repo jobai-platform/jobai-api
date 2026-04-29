@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 
 from app.application.billing.dto import CheckoutSessionResult
-from app.application.billing.ports import SubscriptionRepository, BillingGateway
+from app.application.billing.ports import SubscriptionRepository, BillingGateway, BillingPriceRepository
 from app.application.users.ports import UserRepository
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
@@ -15,16 +15,57 @@ class AssignFreemiumOnSignupUseCase:
     """
     Use case for assigning a freemium subscription to a user on signup.
     If the user already has a subscription (e.g. from a previous signup), it will be returned instead of creating a new one.
+    - Create Stripe customer
+    - Create Stripe Freemium subscription
+    - Create local subscription linked to BillingPrice
     """
-    def __init__(self, subscription_repository: SubscriptionRepository):
+    def __init__(
+        self,
+        subscription_repository: SubscriptionRepository,
+        user_repository: UserRepository,
+        billing_price_repository: BillingPriceRepository,
+        billing_gateway: BillingGateway,
+    ):
         self.subscription_repository = subscription_repository
+        self.user_repository = user_repository
+        self.billing_price_repository = billing_price_repository
+        self.billing_gateway = billing_gateway
 
     async def execute(self, user_id: UUID) -> Subscription:
         existing = await self.subscription_repository.get_by_user_id(user_id)
         if existing:
             return existing
 
-        subscription = Subscription.create_freemium(user_id=user_id)
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            logger.error("User not found for ID: %s. Cannot assign freemium subscription.", user_id)
+            raise ValueError("User not found. Cannot assign freemium subscription.")
+
+        freemium_price = await self.billing_price_repository.get_active_by_plan(Plan.FREEMIUM)
+        if not freemium_price:
+            logger.error("Freemium price not found in database. Cannot assign freemium subscription.")
+            raise ValueError("Freemium price not found. Please contact support.")
+
+        stripe_customer_id = await self.billing_gateway.create_customer(
+            email=str(user.email),
+            user_id=user.id
+        )
+
+        stripe_subscription_id = await self.billing_gateway.create_subscription(
+            customer_id=stripe_customer_id,
+            stripe_price_id=freemium_price.stripe_price_id,
+            user_id=user.id,
+            plan=Plan.FREEMIUM.value,
+        )
+
+
+        subscription = Subscription.create_freemium(
+            user_id=user.id,
+            stripe_customer_id=stripe_customer_id,
+            stripe_subscription_id=stripe_subscription_id,
+            billing_price_id=freemium_price.id,
+        )
+
         return await self.subscription_repository.create(subscription)
 
 
@@ -56,16 +97,19 @@ class CreateCheckoutSessionUseCase:
         :return: CheckoutSessionResult.
         """
         if target_plan == Plan.FREEMIUM.value:
+            logger.info("Target plan is freemium. Cannot create checkout session.")
             raise ValueError("Cannot create checkout session for freemium plan.")
 
         try:
             plan = Plan(target_plan)
         except ValueError as exc:
+            logger.error(exc)
             raise ValueError(f"Invalid subscription plan: '{target_plan}.'") from exc
 
         # Fetch user to get email for Stripe and to verify existence before creating checkout session
         user = await self.user_repository.get_by_id(user_id)
         if not user:
+            logger.error("User not found for ID: %s. Cannot create checkout session.", user_id)
             raise ValueError("User not found.")
 
         checkout_url = await self.billing_gateway.create_checkout_session(
@@ -77,6 +121,53 @@ class CreateCheckoutSessionUseCase:
         )
 
         return CheckoutSessionResult(checkout_url=checkout_url)
+
+
+class SyncStripePricesUseCase:
+    """
+    Synchronize Stripe prices into database.
+    Stripe Product or Price metadata must contain:
+    plan=freemium
+    plan=pro
+    plan=entreprise
+    """
+    def __init__(
+        self,
+        billing_gateway: BillingGateway,
+        billing_price_repository: BillingPriceRepository,
+    ) -> None:
+        self.billing_gateway = billing_gateway
+        self.billing_price_repository = billing_price_repository
+
+        async def execute(self) -> float:
+            raw_prices = await self.billing_gateway.list_prices()
+            synced_count = 0
+            for raw_price in raw_prices:
+                plan_raw = raw_price.get("metadata", {}).get("plan")
+
+                try:
+                    plan = Plan(plan_raw)
+                except ValueError:
+                    logger.warning(
+                        "Skipping Stripe price with invalid or missing plan metadata: %s",
+                        raw_price.get("id")
+                    )
+                    continue
+
+                price = BillingPrice.create(
+                    plan=plan,
+                    stripe_price_id=raw_price["stripe_price_id"],
+                    stripe_product_id=raw_price["stripe_product_id"],
+                    currency=raw_price["currency"],
+                    amount=raw_price["amount"],
+                    interval=raw_price["interval"],
+                    active=raw_price["active"],
+                )
+
+                await self.billing_price_repository.create(price)
+                synced_count += 1
+
+            return synced_count
 
 
 class HandleStripeWebhookUseCase:

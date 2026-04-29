@@ -68,6 +68,8 @@ async def stripe_webhook(
     billing_gateway: BillingGateway = Depends(get_billing_gateway),
     use_case: HandleStripeWebhookUseCase = Depends(get_handle_stripe_webhook_use_case),
 ):
+    payload = await request.body()
+
     try:
         event = await billing_gateway.verify_and_construct_event(payload, stripe_signature)
     except ValueError as exc:

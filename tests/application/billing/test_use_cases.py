@@ -59,7 +59,7 @@ class FakeBillingGateway:
         self.checkout_url = checkout_url
         self.created_sessions = []
 
-    def create_checkout_session(self, *, email, user_id, plan, success_url, cancel_url):
+    async def create_checkout_session(self, *, email, user_id, plan, success_url, cancel_url):
         # use a synchronous signature to match current use-case usage
         self.created_sessions.append(dict(email=email, user_id=user_id, plan=plan, success_url=success_url, cancel_url=cancel_url))
         return self.checkout_url
@@ -183,4 +183,3 @@ async def test_handle_subscription_deleted_marks_canceled():
     await uc.execute(event)
     assert repo.updated is not None
     assert repo.updated.status == SubscriptionStatus.CANCELED
-

@@ -26,4 +26,3 @@ def test_assign_paid_plan_and_update_status():
 
     sub.update_status(SubscriptionStatus.ACTIVE)
     assert sub.status == SubscriptionStatus.ACTIVE
-

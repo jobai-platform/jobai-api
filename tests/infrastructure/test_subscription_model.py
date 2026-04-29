@@ -28,4 +28,3 @@ async def test_subscription_model_crud(db_session, create_user_in_db):
     assert fetched.user_id == user.id
     assert fetched.plan == Plan.PRO.value
     assert fetched.status == SubscriptionStatus.ACTIVE.value
-

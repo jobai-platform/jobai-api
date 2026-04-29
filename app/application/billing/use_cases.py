@@ -205,19 +205,3 @@ class HandleStripeWebhookUseCase:
         subscription.update_status(SubscriptionStatus.CANCELED)
         await self.subscription_repository.update(subscription.user_id, subscription)
         logger.info("Subscription updated for user_id=%s, plan=%s", stripe_subscription_id, subscription.plan)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

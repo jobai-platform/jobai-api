@@ -8,4 +8,3 @@ def test_map_stripe_subscription_status():
     assert map_stripe_subscription_status("past_due") == SubscriptionStatus.PAST_DUE
     assert map_stripe_subscription_status("canceled") == SubscriptionStatus.CANCELED
     assert map_stripe_subscription_status("unknown_status") == SubscriptionStatus.PENDING
-

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from uuid import UUID
 
+from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan
 
@@ -41,10 +42,9 @@ class SubscriptionRepository(ABC):
 
 
     @abstractmethod
-    async def update(self, user_id: UUID, subscription: Subscription) -> Optional[Subscription]:
+    async def update(self, subscription: Subscription) -> Optional[Subscription]:
         """
-        Update subscription for a given user.
-        :param user_id: User ID.
+        Update subscription for a given user (user_id is read from subscription.user_id).
         :param subscription: Subscription object.
         :return: Subscription object.
         """

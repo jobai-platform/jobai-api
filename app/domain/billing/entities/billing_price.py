@@ -7,7 +7,7 @@ from app.domain.billing.enums import Plan
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(slots=True)
 class BillingPrice:
     plan: Plan
     stripe_price_id: str
@@ -39,8 +39,8 @@ class BillingPrice:
             raise ValueError("Billing price id cannot be None")
 
         if not stripe_product_id:
-            logger.error("Invalid billing price id: %r", stripe_price_id)
-            raise ValueError("Billing price id cannot be None")
+            logger.error("Invalid billing product id: %r", stripe_product_id)
+            raise ValueError("Billing product id cannot be None")
 
         if not currency:
             logger.error("Currency is required")

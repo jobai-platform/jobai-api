@@ -9,6 +9,7 @@ from app.application.billing.use_cases import (
     HandleStripeWebhookUseCase,
 )
 from app.application.billing.dto import CheckoutSessionResult
+from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
 
@@ -27,7 +28,6 @@ class FakeSubscriptionRepo:
 
     async def get_by_stripe_subscription_id(self, stripe_subscription_id):
         self.get_by_stripe_subscription_id_calls.append(stripe_subscription_id)
-        # naive match
         if self._existing and self._existing.stripe_subscription_id == stripe_subscription_id:
             return self._existing
         return None
@@ -36,12 +36,7 @@ class FakeSubscriptionRepo:
         self.created = subscription
         return subscription
 
-    async def update(self, *args, **kwargs):
-        # signature varies in code: update(subscription) or update(user_id, subscription)
-        if len(args) == 1:
-            subscription = args[0]
-        else:
-            subscription = args[-1]
+    async def update(self, subscription: Subscription):
         self.updated = subscription
         return subscription
 
@@ -54,22 +49,55 @@ class FakeUserRepo:
         return self._user
 
 
+class FakeBillingPriceRepo:
+    def __init__(self, price=None):
+        self._price = price
+
+    async def get_active_by_plan(self, plan):
+        return self._price
+
+
 class FakeBillingGateway:
     def __init__(self, checkout_url="https://checkout.test"):
         self.checkout_url = checkout_url
         self.created_sessions = []
+        self.created_customer_id = "cus_fake"
+        self.created_subscription_id = "sub_fake"
 
     async def create_checkout_session(self, *, email, user_id, plan, success_url, cancel_url):
-        # use a synchronous signature to match current use-case usage
         self.created_sessions.append(dict(email=email, user_id=user_id, plan=plan, success_url=success_url, cancel_url=cancel_url))
         return self.checkout_url
+
+    async def create_customer(self, *, email, user_id):
+        return self.created_customer_id
+
+    async def create_subscription(self, *, customer_id, stripe_price_id, user_id, plan):
+        return self.created_subscription_id
+
+
+def _make_freemium_price() -> BillingPrice:
+    return BillingPrice.create(
+        plan=Plan.FREEMIUM,
+        stripe_price_id="price_free",
+        stripe_product_id="prod_free",
+        currency="chf",
+        amount=0,
+        interval="month",
+        active=True,
+    )
 
 
 @pytest.mark.asyncio
 async def test_assign_freemium_on_signup_creates_if_not_exists():
-    repo = FakeSubscriptionRepo(existing=None)
-    uc = AssignFreemiumOnSignupUseCase(subscription_repository=repo)
     user_id = uuid.uuid4()
+    fake_user = SimpleNamespace(id=user_id, email="test@example.com")
+    repo = FakeSubscriptionRepo(existing=None)
+    uc = AssignFreemiumOnSignupUseCase(
+        subscription_repository=repo,
+        user_repository=FakeUserRepo(user=fake_user),
+        billing_price_repository=FakeBillingPriceRepo(price=_make_freemium_price()),
+        billing_gateway=FakeBillingGateway(),
+    )
 
     sub = await uc.execute(user_id)
 
@@ -83,7 +111,12 @@ async def test_assign_freemium_on_signup_creates_if_not_exists():
 async def test_assign_freemium_on_signup_returns_existing():
     existing = Subscription.create_freemium(user_id=uuid.uuid4())
     repo = FakeSubscriptionRepo(existing=existing)
-    uc = AssignFreemiumOnSignupUseCase(subscription_repository=repo)
+    uc = AssignFreemiumOnSignupUseCase(
+        subscription_repository=repo,
+        user_repository=FakeUserRepo(),
+        billing_price_repository=FakeBillingPriceRepo(),
+        billing_gateway=FakeBillingGateway(),
+    )
 
     out = await uc.execute(existing.user_id)
     assert out is existing

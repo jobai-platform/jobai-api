@@ -7,7 +7,7 @@ from app.domain.billing.enums import Plan, SubscriptionStatus
 
 logger = logging.getLogger(__name__)
 
-@dataclass
+@dataclass(slots=True)
 class Subscription:
     user_id: UUID
     plan: Plan

@@ -2,7 +2,8 @@ import logging
 from uuid import UUID
 
 from app.application.billing.dto import CheckoutSessionResult
-from app.application.billing.ports import SubscriptionRepository, BillingGateway, BillingPriceRepository
+from app.application.billing.ports import BillingGateway, BillingPriceRepository, SubscriptionRepository
+from app.domain.billing.entities.billing_price import BillingPrice
 from app.application.users.ports import UserRepository
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
@@ -55,7 +56,7 @@ class AssignFreemiumOnSignupUseCase:
             customer_id=stripe_customer_id,
             stripe_price_id=freemium_price.stripe_price_id,
             user_id=user.id,
-            plan=Plan.FREEMIUM.value,
+            plan=Plan.FREEMIUM,
         )
 
 
@@ -129,7 +130,7 @@ class SyncStripePricesUseCase:
     Stripe Product or Price metadata must contain:
     plan=freemium
     plan=pro
-    plan=entreprise
+    plan=enterprise
     """
     def __init__(
         self,
@@ -139,35 +140,35 @@ class SyncStripePricesUseCase:
         self.billing_gateway = billing_gateway
         self.billing_price_repository = billing_price_repository
 
-        async def execute(self) -> float:
-            raw_prices = await self.billing_gateway.list_prices()
-            synced_count = 0
-            for raw_price in raw_prices:
-                plan_raw = raw_price.get("metadata", {}).get("plan")
+    async def execute(self) -> int:
+        raw_prices = await self.billing_gateway.list_prices()
+        synced_count = 0
+        for raw_price in raw_prices:
+            plan_raw = raw_price.get("plan")
 
-                try:
-                    plan = Plan(plan_raw)
-                except ValueError:
-                    logger.warning(
-                        "Skipping Stripe price with invalid or missing plan metadata: %s",
-                        raw_price.get("id")
-                    )
-                    continue
-
-                price = BillingPrice.create(
-                    plan=plan,
-                    stripe_price_id=raw_price["stripe_price_id"],
-                    stripe_product_id=raw_price["stripe_product_id"],
-                    currency=raw_price["currency"],
-                    amount=raw_price["amount"],
-                    interval=raw_price["interval"],
-                    active=raw_price["active"],
+            try:
+                plan = Plan(plan_raw)
+            except ValueError:
+                logger.warning(
+                    "Skipping Stripe price with invalid or missing plan metadata: %s",
+                    raw_price.get("stripe_price_id"),
                 )
+                continue
 
-                await self.billing_price_repository.create(price)
-                synced_count += 1
+            price = BillingPrice.create(
+                plan=plan,
+                stripe_price_id=raw_price["stripe_price_id"],
+                stripe_product_id=raw_price["stripe_product_id"],
+                currency=raw_price["currency"],
+                amount=raw_price["amount"],
+                interval=raw_price["interval"],
+                active=raw_price["active"],
+            )
 
-            return synced_count
+            await self.billing_price_repository.upsert(price)
+            synced_count += 1
+
+        return synced_count
 
 
 class HandleStripeWebhookUseCase:
@@ -249,13 +250,13 @@ class HandleStripeWebhookUseCase:
             await self.subscription_repository.update(subscription)
             logger.info("Subscription updated for user_id=%s, plan=%s", user_id, plan)
 
-    async def _handle_subscription_update(self, obg: dict) -> None:
+    async def _handle_subscription_update(self, obj: dict) -> None:
         """
         customer.subscription.created or customer.subscription.updated: the subscription status has changed in Stripe, we update it in our database.
-        :param obg: Stripe event object (checkout.session.completed).
+        :param obj: Stripe event object (customer.subscription.created/updated).
         :return: None
         """
-        stripe_subscription_id = obg.get("id")
+        stripe_subscription_id = obj.get("id")
         if not stripe_subscription_id:
             return
 
@@ -266,12 +267,12 @@ class HandleStripeWebhookUseCase:
             logger.warning("Subscription update received for unknown subscription: stripe_subscription_id=%s", stripe_subscription_id)
             return
 
-        stripe_status = obg.get("status", "incomplete")
+        stripe_status = obj.get("status", "incomplete")
         new_status = map_stripe_subscription_status(stripe_status)
         subscription.update_status(new_status)
         await self.subscription_repository.update(subscription)
         logger.info(
-            "Subscription updated for user_id=%s, plan=%s, status=%s",
+            "Subscription status updated: stripe_subscription_id=%s, new_status=%s",
             stripe_subscription_id,
             new_status,
         )
@@ -294,5 +295,5 @@ class HandleStripeWebhookUseCase:
             return
 
         subscription.update_status(SubscriptionStatus.CANCELED)
-        await self.subscription_repository.update(subscription.user_id, subscription)
-        logger.info("Subscription updated for user_id=%s, plan=%s", stripe_subscription_id, subscription.plan)
+        await self.subscription_repository.update(subscription)
+        logger.info("Subscription canceled: stripe_subscription_id=%s, user_id=%s", stripe_subscription_id, subscription.user_id)

@@ -92,45 +92,6 @@ class StripeGateway(BillingGateway):
 
         return session.url
 
-
-        # # Dynamic price from Stripe
-        # prices = stripe.Price.list(
-        #     lookup_key=[lookup_key],
-        #     active=True,
-        #     limit=1,
-        # )
-        # if not prices.data:
-        #     raise ValueError(
-        #         f"No active price found for plan: {plan}",
-        #         f"(lookup_key {lookup_key}) has no active prices)",
-        #         f"Verify the Dashboard Stripe."
-        #     )
-        #
-        # price_id = prices.data[0].id
-        # logger.info(f"Stripe price resolved: plan=%s lookup_key=%s price_id=%s", plan, lookup_key, price_id)
-        #
-        # try:
-        #     session = stripe.checkout.Session.create(
-        #         mode="subscription",
-        #         customer_email=email,
-        #         line_items=[{
-        #             "price": price_id,
-        #             "quantity": 1,
-        #         }],
-        #         metadata={
-        #             "user_id": str(user_id),
-        #             "plan": plan,
-        #         },
-        #         success_url=success_url,
-        #         cancel_url=cancel_url,
-        #     )
-        # except stripe.StripeError as exc:
-        #     logger.error("Stripe checkout session creation failed: %s", exc)
-        #     raise RuntimeError(f"Failed to create Stripe checkout session: {exc}") from exc
-        #
-        # return session.url
-
-
     async def create_customer(
         self,
         *,
@@ -217,7 +178,7 @@ class StripeGateway(BillingGateway):
             product = price.product
 
             product_metadata = getattr(product, "metadata", {}) or {}
-            price_metadata = getattr(product, "metadata", {}) or {}
+            price_metadata = getattr(price, "metadata", {}) or {}
 
             plan = price_metadata.get("plan") or product_metadata.get("plan")
 
@@ -231,12 +192,12 @@ class StripeGateway(BillingGateway):
                 "stripe_product_id": stripe_product_id,
                 "plan": plan,
                 "currency": price.currency,
-                "amount": price.amount or 0,
+                "amount": price.unit_amount or 0,
                 "interval": interval,
                 "active": price.active,
             })
 
-            return prices
+        return prices
 
 
     async def verify_and_construct_event(

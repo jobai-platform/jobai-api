@@ -1,6 +1,6 @@
 from enum import Enum
 
-class SubscriptionPlan(str, Enum):
+class Plan(str, Enum):
     FREEMIUM = "freemium"
     PRO = "pro"
     ENTERPRISE = "enterprise"

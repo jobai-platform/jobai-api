@@ -17,6 +17,9 @@ from app.infrastructure.security.password_service import PasswordServiceAdapter
 DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
 def get_user_repository(
     session: DbSession,
 ) -> UserRepository:
@@ -30,6 +33,9 @@ def get_user_service(
     pwd_hasher = PasswordServiceAdapter()
     return UserService(user_repo=repo, pwd_hasher=pwd_hasher)
 
+# ---------------------------------------------------------------------------
+# Billing
+# ---------------------------------------------------------------------------
 def get_subscription_repository(
     session: DbSession,
 ) -> SubscriptionRepository:

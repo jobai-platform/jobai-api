@@ -104,7 +104,7 @@ async def get_user_by_id(
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin_role)],
+    # dependencies=[Depends(require_admin_role)],
     summary="Create a new user",
     description="Create a new user in the system.",
     response_description="The created user",

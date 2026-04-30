@@ -19,11 +19,12 @@ from app.infrastructure.persistence.repositories.subscription_sqlalchemy import 
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
 from app.infrastructure.security.password_service import PasswordServiceAdapter
 
+
 DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 
 # ---------------------------------------------------------------------------
-# Users
+# Users - factories
 # ---------------------------------------------------------------------------
 def get_user_repository(
     session: DbSession,
@@ -31,13 +32,12 @@ def get_user_repository(
     return SqlAlchemyUserRepository(session=session)
 
 def get_user_service(
-    repo: UserRepository = Depends(get_user_repository),
+    repo: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> UserService:
-    pwd_hasher = PasswordServiceAdapter()
-    return UserService(user_repo=repo, pwd_hasher=pwd_hasher)
+    return UserService(user_repo=repo, pwd_hasher=PasswordServiceAdapter())
 
 # ---------------------------------------------------------------------------
-# Billing
+# Billing - factories
 # ---------------------------------------------------------------------------
 def get_subscription_repository(
     session: DbSession,
@@ -53,10 +53,10 @@ def get_billing_gateway() -> BillingGateway:
     return StripeGateway()
 
 def get_assign_freemium_on_signup_use_case(
-    subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),
-    user_repository: UserRepository = Depends(get_user_repository),
-    billing_price_repository: BillingPriceRepository = Depends(get_billing_price_repository),
-    billing_gateway: BillingGateway = Depends(get_billing_gateway),
+    subscription_repository: Annotated[SubscriptionRepository, Depends(get_subscription_repository)],
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+    billing_price_repository: Annotated[BillingPriceRepository, Depends(get_billing_price_repository)],
+    billing_gateway: Annotated[BillingGateway, Depends(get_billing_gateway)],
 ) -> AssignFreemiumOnSignupUseCase:
     return AssignFreemiumOnSignupUseCase(
         subscription_repository=subscription_repository,
@@ -66,8 +66,8 @@ def get_assign_freemium_on_signup_use_case(
     )
 
 def get_create_checkout_session_use_case(
-    user_repository: UserRepository = Depends(get_user_repository),
-    billing_gateway: BillingGateway = Depends(get_billing_gateway),
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+    billing_gateway: Annotated[BillingGateway, Depends(get_billing_gateway)],
 ) -> CreateCheckoutSessionUseCase:
     return CreateCheckoutSessionUseCase(
         user_repository=user_repository,
@@ -75,15 +75,28 @@ def get_create_checkout_session_use_case(
     )
 
 def get_handle_stripe_webhook_use_case(
-    subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),
+    subscription_repository: Annotated[SubscriptionRepository, Depends(get_subscription_repository)],
 ) -> HandleStripeWebhookUseCase:
     return HandleStripeWebhookUseCase(subscription_repository=subscription_repository)
 
 def get_sync_stripe_prices_use_case(
-    billing_gateway: BillingGateway = Depends(get_billing_gateway),
-    billing_price_repository: BillingPriceRepository = Depends(get_billing_price_repository),
+    billing_gateway: Annotated[BillingGateway, Depends(get_billing_gateway)],
+    billing_price_repository: Annotated[BillingPriceRepository, Depends(get_billing_price_repository)],
 ) -> SyncStripePricesUseCase:
     return SyncStripePricesUseCase(
         billing_gateway=billing_gateway,
         billing_price_repository=billing_price_repository,
     )
+
+# ---------------------------------------------------------------------------
+# Annotated aliases - to be imported in the routes
+# ---------------------------------------------------------------------------
+UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+UserRepositoryDep = Annotated[UserRepository, Depends(get_user_service)]
+SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
+AssignFreemiumDep = Annotated[AssignFreemiumOnSignupUseCase, Depends(get_assign_freemium_on_signup_use_case)]
+CreateCheckoutDep = Annotated[CreateCheckoutSessionUseCase, Depends(get_create_checkout_session_use_case)]
+HandleWebhookDep = Annotated[HandleStripeWebhookUseCase, Depends(get_handle_stripe_webhook_use_case)]
+SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_prices_use_case)]
+BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
+

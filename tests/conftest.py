@@ -1,4 +1,5 @@
 import os
+import uuid
 from typing import Any, AsyncGenerator
 
 import pytest
@@ -8,10 +9,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.constants.general import DB_SCHEMA
+from app.core.dependency import get_billing_gateway
 from app.infrastructure.config.database import Base, get_async_session
+from app.infrastructure.persistence.models.billing_price import BillingPriceModel
 from app.infrastructure.persistence.models.user import UserModel
 from app.infrastructure.security.jwt_service import JWTService
 from app.main import app
+from tests.fakes.billing.fake_billing_gateway import FakeBillingGateway
 
 
 def _test_db_url() -> str:
@@ -74,6 +78,7 @@ async def client(db_session: AsyncSession):
         yield db_session
 
     app.dependency_overrides[get_async_session] = _override_get_async_session
+    app.dependency_overrides[get_billing_gateway] = FakeBillingGateway
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -110,6 +115,24 @@ async def create_user_in_db(db_session: AsyncSession):
         return user
 
     return _create_user
+
+
+@pytest_asyncio.fixture()
+async def freemium_price_in_db(db_session: AsyncSession) -> BillingPriceModel:
+    price = BillingPriceModel(
+        id=uuid.uuid4(),
+        plan="freemium",
+        stripe_price_id="price_test_freemium",
+        stripe_product_id="prod_test_freemium",
+        currency="usd",
+        amount=0,
+        interval="month",
+        active=True,
+    )
+    db_session.add(price)
+    await db_session.commit()
+    await db_session.refresh(price)
+    return price
 
 
 @pytest.fixture()

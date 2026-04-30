@@ -92,7 +92,7 @@ def get_sync_stripe_prices_use_case(
 # Annotated aliases - to be imported in the routes
 # ---------------------------------------------------------------------------
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
-UserRepositoryDep = Annotated[UserRepository, Depends(get_user_service)]
+UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
 AssignFreemiumDep = Annotated[AssignFreemiumOnSignupUseCase, Depends(get_assign_freemium_on_signup_use_case)]
 CreateCheckoutDep = Annotated[CreateCheckoutSessionUseCase, Depends(get_create_checkout_session_use_case)]

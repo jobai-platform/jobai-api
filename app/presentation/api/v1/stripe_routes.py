@@ -125,7 +125,7 @@ async def stripe_webhook(
     return StripeWebhookResponse(received=True)
 
 
-@router.post(
+@router.get(
     "/sync-prices",
     status_code=status.HTTP_200_OK,
     response_model=SyncStripePricesResponse,

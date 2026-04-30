@@ -23,11 +23,11 @@ class StripeGateway(BillingGateway):
     via the .env file without modifying the code.
     """
     def __init__(self) -> None:
-        stripe.api_key = settings.STRIPE_API_KEY
+        stripe.api_key = settings.STRIPE_SECRET_KEY
         self.webhook_secret =  settings.STRIPE_WEBHOOK_SECRET
         self.plan_lookup_keys = {
-            "pro": settings.STRIPE_PRO_PLAN_LOOKUP_KEY,
-            "enterprise": settings.STRIPE_ENTERPRISE_PLAN_LOOKUP_KEY,
+            "pro": settings.STRIPE_PRO_PRICE_LOOKUP_KEY,
+            "enterprise": settings.STRIPE_ENTERPRISE_PRICE_LOOKUP_KEY,
         }
 
     async def create_checkout_session(

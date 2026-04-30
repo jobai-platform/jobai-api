@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +44,7 @@ class BillingPriceSQLAlchemyRepository(BillingPriceRepository):
                 active=price.active,
             )
             .on_conflict_do_update(
-                constraint="uq_billing_prices_stripe_price_id",
+                constraint="uq_billing_price_stripe_id",
                 set_={
                     "plan": price.plan.value,
                     "stripe_product_id": price.stripe_product_id,
@@ -52,7 +52,7 @@ class BillingPriceSQLAlchemyRepository(BillingPriceRepository):
                     "amount": int(price.amount),
                     "interval": price.interval,
                     "active": price.active,
-                    "updated_at": "now()",
+                    "updated_at": func.now(),
                 },
             )
             .returning(BillingPriceModel)

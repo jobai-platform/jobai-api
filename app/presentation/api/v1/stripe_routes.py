@@ -1,32 +1,56 @@
 import logging
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from app.application.billing.ports import BillingGateway
-from app.application.billing.use_cases import (
-    CreateCheckoutSessionUseCase,
-    HandleStripeWebhookUseCase,
-    SyncStripePricesUseCase,
-)
 from app.core.dependency import (
-    get_billing_gateway,
-    get_create_checkout_session_use_case,
-    get_handle_stripe_webhook_use_case,
-    get_sync_stripe_prices_use_case,
+    BillingGatewayDep,
+    CreateCheckoutDep,
+    HandleWebhookDep,
+    SyncPricesDep,
+    SubscriptionRepositoryDep,
 )
+from app.domain.common.exceptions import NotFoundError
 from app.presentation.api.v1.schemas.billing import (
     CreateCheckoutSessionRequest,
     CreateCheckoutSessionResponse,
     StripeWebhookResponse,
     SyncStripePricesResponse,
+    SubscriptionRead,
 )
 from app.presentation.security.deps import get_current_user_id
 
-logger = logging.getLogger(__name__)
+CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
+@router.get(
+    "/subscriptions/me",
+    response_model=SubscriptionRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user subscription details",
+    description="Retrieve the active subscription plan details for the currently authenticated user."
+)
+async def get_my_subscription(
+    current_user_id: CurrentUserIdDep,
+    subscription_repo: SubscriptionRepositoryDep,
+):
+    sub = await subscription_repo.get_by_user_id(current_user_id)
+    if not sub:
+        raise NotFoundError(
+            code="subscription_not_found",
+            details=f"No active subscription found for user {current_user_id}"
+        )
+    return SubscriptionRead(
+        user_id=str(sub.user_id),
+        plan=sub.plan.value,
+        status=sub.status.value,
+        stripe_customer_id=sub.stripe_customer_id,
+        stripe_subscription_id=sub.stripe_subscription_id,
+        billing_price_id=str(sub.billing_price_id) if sub.billing_price_id else None,
+    )
 
 @router.post(
     "/checkout-session",
@@ -35,10 +59,8 @@ router = APIRouter(prefix="/stripe", tags=["Stripe"])
 )
 async def create_checkout_session(
     payload: CreateCheckoutSessionRequest,
-    current_user_id: UUID = Depends(get_current_user_id),
-    use_case: CreateCheckoutSessionUseCase = Depends(
-        get_create_checkout_session_use_case
-    ),
+    current_user_id: CurrentUserIdDep,
+    use_case: CreateCheckoutDep,
 ):
     try:
         result = await use_case.execute(
@@ -73,14 +95,11 @@ async def create_checkout_session(
 )
 async def stripe_webhook(
     request: Request,
+    use_case: HandleWebhookDep,
+    billing_gateway: BillingGatewayDep,
     stripe_signature: str = Header(..., alias="Stripe-Signature"),
-    billing_gateway: BillingGateway = Depends(get_billing_gateway),
-    use_case: HandleStripeWebhookUseCase = Depends(
-        get_handle_stripe_webhook_use_case
-    ),
 ):
     payload = await request.body()
-
     try:
         event = await billing_gateway.verify_and_construct_event(
             payload,
@@ -106,13 +125,15 @@ async def stripe_webhook(
     return StripeWebhookResponse(received=True)
 
 
-@router.post(
+@router.get(
     "/sync-prices",
     status_code=status.HTTP_200_OK,
     response_model=SyncStripePricesResponse,
+    summary="Sync Stripe prices to database",
+    description="Sync Stripe prices to database",
 )
 async def sync_stripe_prices(
-    use_case: SyncStripePricesUseCase = Depends(get_sync_stripe_prices_use_case),
+    use_case: SyncPricesDep,
 ):
     try:
         synced_count = await use_case.execute()

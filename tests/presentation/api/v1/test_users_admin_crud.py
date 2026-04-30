@@ -40,7 +40,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_admin_create_user_returns_201(client, create_user_in_db, jwt_service):
+async def test_admin_create_user_returns_201(client, create_user_in_db, jwt_service, freemium_price_in_db):
     admin_user = await create_user_in_db(
         email="admin@fakemail.com",
         password="securepassword",

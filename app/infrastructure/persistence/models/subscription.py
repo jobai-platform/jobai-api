@@ -1,6 +1,6 @@
 from sqlalchemy import func, ForeignKey, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, foreign
 
 from app.infrastructure.config.database import Base
 from app.constants.general import DB_SCHEMA
@@ -24,7 +24,7 @@ class SubscriptionModel(Base):
     )
     billing_price_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("billing_prices.id", ondelete="SET NULL"),
+        ForeignKey(f"{DB_SCHEMA}.billing_prices.id", ondelete="SET NULL"),
         nullable=True,
     )
     stripe_customer_id: Mapped[str | None] = mapped_column(

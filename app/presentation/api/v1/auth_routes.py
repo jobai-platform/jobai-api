@@ -1,9 +1,11 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.auth.use_cases import AuthService
-from app.infrastructure.config.database import get_async_session
+from app.core.dependency import UserRepositoryDep
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
@@ -15,19 +17,16 @@ router = APIRouter(
 )
 
 
-async def get_auth_service(
-    session: AsyncSession = Depends(get_async_session),
+def get_auth_service(
+    repo: UserRepositoryDep,
 ) -> AuthService:
-    user_repo = SqlAlchemyUserRepository(session=session)
-    pwd_hasher = PasswordServiceAdapter()
-    token_service = JWTTokenServiceAdapter()
-
     return AuthService(
-        user_repo=user_repo,
-        pwd_hasher=pwd_hasher,
-        token_service=token_service,
+        user_repo=repo,
+        pwd_hasher=PasswordServiceAdapter(),
+        token_service=JWTTokenServiceAdapter(),
     )
 
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 @router.post(
     "/token",
@@ -37,8 +36,8 @@ async def get_auth_service(
     description="Authenticate user and return JWT access and refresh tokens.",
 )
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    auth_service: AuthService = Depends(get_auth_service),
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    auth_service: AuthServiceDep,
 ):
     """
     Oauth2-compatible login, get an access token and a refresh token for future requests.
@@ -46,11 +45,11 @@ async def login(
     :param auth_service: AuthService
     :return: TokenPair
     """
-    email = form_data.username
-    password = form_data.password
-
     try:
-        tokens = await auth_service.login(email=email, password=password)
+        tokens = await auth_service.login(
+            email=form_data.username,
+            password=form_data.password,
+        )
         return TokenPairSchema(
             access_token=tokens.access_token,
             refresh_token=tokens.refresh_token,

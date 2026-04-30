@@ -1,13 +1,25 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, status, Depends, Response
 
+from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
 from app.application.users.use_cases import UserService
-from app.core.dependency import get_user_service
+from app.core.dependency import (
+    UserServiceDep,
+    AssignFreemiumDep
+)
 from app.domain.common.exceptions import NotFoundError
 from app.presentation.api.mappers.users_mapper import to_user_read, to_domain_user
-from app.presentation.api.v1.schemas.users import UserRead, UsersCountResponse, UserCreate, UserUpdate
+from app.presentation.api.v1.schemas.users import (
+    UserRead,
+    UsersCountResponse,
+    UserCreate,
+    UserUpdate
+)
 from app.presentation.security.deps import get_current_user_id, require_admin_role
+
+CurrentUserIdDep = Annotated[UserRead, Depends(get_current_user_id)]
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -22,9 +34,9 @@ router = APIRouter(prefix="/users", tags=["users"])
     response_description="List of users",
 )
 async def list_users(
+    service: UserServiceDep,
     skip: int = 0,
     limit: int = 50,
-    service: UserService = Depends(get_user_service),
 ):
     """
     Endpoint to list all users with pagination.
@@ -46,6 +58,16 @@ async def list_users(
     description="Retrieve the total count of users in the system.",
     response_description="Total user count",
 )
+async def get_user_count(
+    service: UserServiceDep,
+) -> UsersCountResponse:
+    """
+    Endpoint to get the total count of users.
+    :param service: UserService instance
+    :return: Total user count
+    """
+    total = await service.count_users()
+    return UsersCountResponse(total=total)
 
 @router.get(
     "/me",
@@ -59,8 +81,8 @@ async def list_users(
     }
 )
 async def get_me(
-    current_user_id: UUID = Depends(get_current_user_id),
-    service: UserService = Depends(get_user_service),
+    current_user_id: CurrentUserIdDep,
+    service: UserServiceDep,
 ):
     """
     Endpoint to get the current authenticated user's information.
@@ -74,7 +96,6 @@ async def get_me(
             code="user_not_found",
             details="User not found.",
         )
-
     return to_user_read(user)
 
 
@@ -93,7 +114,7 @@ async def get_me(
 )
 async def get_user_by_id(
     user_id: UUID,
-    service: UserService = Depends(get_user_service),
+    service: UserServiceDep,
 ) -> UserRead:
     user = await service.get_user_by_id(user_id=user_id)
     if not user:
@@ -115,10 +136,11 @@ async def get_user_by_id(
 )
 async def create_user(
     payload: UserCreate,
-    service: UserService = Depends(get_user_service),
+    service: UserServiceDep,
+    assign_freemium: AssignFreemiumDep,
 ) -> UserRead:
     user = await service.register(
-        email=payload.email,
+        email=str(payload.email),
         username=payload.username,
         first_name=payload.first_name,
         last_name=payload.last_name,
@@ -127,6 +149,7 @@ async def create_user(
         role=payload.role,
         is_active=payload.is_active,
     )
+    await assign_freemium.execute(user.id)
     return to_user_read(user)
 
 
@@ -146,7 +169,7 @@ async def create_user(
 async def update_user(
     user_id: UUID,
     payload: UserUpdate,
-    service: UserService = Depends(get_user_service),
+    service: UserServiceDep,
 ) -> UserRead:
     updated_user = await service.update_user(
         user_id=user_id,
@@ -168,7 +191,7 @@ async def update_user(
 )
 async def delete_user(
     user_id: UUID,
-    service: UserService = Depends(get_user_service),
+    service: UserServiceDep,
 ) -> Response:
     await service.delete_user(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

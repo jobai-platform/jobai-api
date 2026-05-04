@@ -6,10 +6,7 @@ from app.domain.job_search.value_objects import ScrapedJob
 @dataclass(frozen=True)
 class JobSearchResult:
     """
-    DTO returned by SearchJobsUseCase to the presentation layer.
-    Equivalent to CheckoutSessionResult in the billing bounded context.
-
-    Carries scraped jobs and search metadata.
+    Represents an individual job search result.
     """
     jobs: list[ScrapedJob]
     total: int

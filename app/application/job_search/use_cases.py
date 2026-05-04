@@ -1,33 +1,21 @@
 import logging
-from typing import Optional
 
 from app.application.job_search.dto import JobSearchResult
 from app.application.job_search.ports import JobScraperGateway
-from app.domain.job_search.value_objects import ScrapedJob, JobSearchQuery
+from app.domain.job_search.value_objects import JobSearchQuery, ScrapedJob
 
 logger = logging.getLogger(__name__)
 
+
 class SearchJobsUseCase:
     """
-    Orchestrates searching jobs for a candidate.
-    Future extensions:
-        - Cross-reference with existing applications to avoid duplicates.
-        - Feed results into SkillMatch scoring.
-        - Trigger SearchAgent autonomously on a schedule.
-        - Validates search criteria.
-        - Retrieves matching jobs from the repository.
-        - Applies any necessary business logic (e.g., filtering, sorting).
-        - Returns the list of matching jobs to the caller.
-        - Handles any exceptions that may occur during the search process.
-        - Logs relevant information for monitoring and debugging purposes.
-        - Ensures that the search operation is efficient and scalable.
-        - May interact with other use cases or services as needed (e.g., for user preferences).
-        - Provides a clear interface for the presentation layer to invoke the search functionality.
-        - Ensures that the search results are relevant and personalized based on the candidate's profile and preferences.
+    Orchestrates Job Search for a candidate.
+    Source-agnostic: delegates to JobScraperGateway
+    Future: cross-reference with existing applications to avoid duplicate.
     """
+
     def __init__(self, scraper: JobScraperGateway) -> None:
         self.scraper = scraper
-
 
     async def execute(
         self,
@@ -36,8 +24,17 @@ class SearchJobsUseCase:
         location: str,
         limit: int = 25,
         remote_only: bool = False,
-        date_posted_within_days: Optional[int] = 7,
+        date_posted_within_days: int | None = 7,
     ) -> JobSearchResult:
+        """
+        Search for job postings matching the given parameters.
+        :param keywords: Job title or skills to search for.
+        :param location: Location to search for jobs.
+        :param limit: Maximum number of jobs to return.
+        :param remote_only: Whether to only include remote jobs.
+        :param date_posted_within_days: Number of days back to consider when searching for jobs.
+        :return: A list of job postings matching the criteria.
+        """
         query = JobSearchQuery(
             keywords=keywords,
             location=location,
@@ -47,27 +44,27 @@ class SearchJobsUseCase:
         )
         jobs = await self.scraper.search_jobs(query)
 
-        logger.info("SearchJobsUseCase: found %d jobs for query: %s", len(jobs), query)
+        logger.info(
+            "SearchJobsUseCase: found %d jobs for query: %s",
+            len(jobs), query
+        )
 
-        source = jobs[0].source if jobs else "unknown"
-        return JobSearchResult(jobs=jobs, total=len(jobs), keywords=keywords, location=location, source=source)
+        return JobSearchResult(
+            jobs=jobs,
+            total=len(jobs),
+            keywords=keywords,
+            location=location,
+            source=jobs[0].source if jobs else "unknown",
+        )
 
-
-    async def get_detail(self, *, job_id: str) -> Optional[ScrapedJob]:
+    async def get_detail(self, *, job_id: str) -> ScrapedJob | None:
         """
-        Retrieve detailed information for a specific job posting.
-        - Validates the job ID.
-        - Retrieves the job details from the repository or external source.
-        - Handles any exceptions that may occur during the retrieval process.
-        - Logs relevant information for monitoring and debugging purposes.
-        - Ensures that the retrieval operation is efficient and scalable.
-        - May interact with other use cases or services as needed (e.g., for user preferences).
-        - Provides a clear interface for the presentation layer to invoke the detail retrieval functionality.
-        - Ensures that the retrieved job details are accurate and up-to-date based on the source platform.
+        Retrieve full details for a specific job posting.
+        :param job_id: External job identifier.
+        :return: ScrapedJob or None if not found.
         """
         try:
-            job_detail = await self.scraper.get_job_detail(job_id)
-            return job_detail
-        except Exception as e:
-            logger.error("Error retrieving job detail for job_id '%s': %s", job_id, str(e))
+            return await self.scraper.get_job_detail(job_id)
+        except Exception:
+            logger.exception("Error retrieving job detail for job_id '%s'", job_id)
             return None

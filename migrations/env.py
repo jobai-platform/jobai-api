@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import os
 import os.path
 import pkgutil
 import sys
@@ -59,7 +60,13 @@ target_metadata = Base.metadata
 
 def get_sync_db_url() -> str:
     # postgresql+asyncpg://postgres:postgres@db:5432/jobai_db
-    return settings.DATABASE_URL
+    url = settings.DATABASE_URL
+    # The docker-compose service hostname `db` is only resolvable inside the
+    # compose network. When alembic is invoked from the host, rewrite to
+    # localhost so the postgres port published by docker-compose is reached.
+    if not os.environ.get("RUNNING_IN_DOCKER"):
+        url = url.replace("@db:", "@localhost:")
+    return url
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

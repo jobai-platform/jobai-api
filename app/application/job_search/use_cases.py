@@ -1,10 +1,31 @@
 import logging
 
 from app.application.job_search.dto import JobSearchResult
-from app.application.job_search.ports import JobScraperGateway
+from app.application.job_search.ports import JobScraperGateway, JobPostingRepository
+from app.domain.job_search.entities import JobPosting
 from app.domain.job_search.value_objects import JobSearchQuery, ScrapedJob
 
 logger = logging.getLogger(__name__)
+
+
+def _to_job_posting(scraped: ScrapedJob) -> JobPosting:
+    """Maps a ScrapedJob Value Object to a JobPosting Entity."""
+    return JobPosting(
+        external_id=scraped.external_id,
+        title=scraped.title,
+        company=scraped.company,
+        location=scraped.location,
+        description=scraped.description,
+        url=scraped.url,
+        source=scraped.source,
+        apply_url=scraped.apply_url,
+        company_url=scraped.company_url,
+        posted_at=scraped.posted_at,
+        is_remote=scraped.is_remote,
+        job_type=scraped.job_type,
+        insights=scraped.insights,
+        skills=scraped.skills,
+    )
 
 
 class SearchJobsUseCase:
@@ -14,8 +35,13 @@ class SearchJobsUseCase:
     Future: cross-reference with existing applications to avoid duplicate.
     """
 
-    def __init__(self, scraper: JobScraperGateway) -> None:
+    def __init__(
+        self,
+        scraper: JobScraperGateway,
+        job_posting_repo: JobPostingRepository,
+    ) -> None:
         self.scraper = scraper
+        self.job_posting_repo = job_posting_repo
 
     async def execute(
         self,
@@ -44,9 +70,16 @@ class SearchJobsUseCase:
         )
         jobs = await self.scraper.search_jobs(query)
 
+        persisted: list[JobPosting] = []
+        for job in jobs:
+            job_entity = _to_job_posting(job)
+            saved = await self.job_posting_repo.upsert(job_entity)
+            persisted.append(saved)
+
         logger.info(
-            "SearchJobsUseCase: found %d jobs for query: %s",
-            len(jobs), query
+            "SearchJobsUseCase: scraped=%d persisted=%d "
+            "keywords='%s' location='%s'",
+            len(jobs), len(persisted), keywords, location,
         )
 
         return JobSearchResult(

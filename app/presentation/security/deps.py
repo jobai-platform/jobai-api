@@ -1,4 +1,4 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, Annotated
 from uuid import UUID
 
 from fastapi import Depends
@@ -15,12 +15,13 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 
 def get_jwt_token_service() -> JWTTokenServiceAdapter:
-    """Factory dependency returning a JWTTokenServiceAdapter instance."""
     return JWTTokenServiceAdapter()
+
+JWTServiceDep = Annotated[JWTTokenServiceAdapter, Depends(get_jwt_token_service)]
+TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 
 def _unauthorized() -> None:
-    # Keep message stable for existing tests/clients
     raise UnauthorizedError(
         code="invalid_authentication",
         details="Invalid authentication credentials",
@@ -36,9 +37,9 @@ def _forbidden() -> None:
 
 async def get_current_claims(
     request: Request,
-    token: str = Depends(oauth2_scheme),
-    jwt_service: JWTTokenServiceAdapter = Depends(get_jwt_token_service),
-) -> dict[str, Any] | None:
+    token: TokenDep,
+    jwt_service: JWTServiceDep,
+) -> dict[str, Any]:
     """
     Dependency to get the current JWT claims from the token.
     Expected:
@@ -54,21 +55,19 @@ async def get_current_claims(
         _unauthorized()
 
     try:
-        # return dict(jwt_service.decode_token(token))
         claims = jwt_service.decode_token(token)
-
-        # Stash claims for logs/handlers
         request.state.jwt_claims = claims
         request.state.user_id = claims.get("sub")
         request.state.user_role = claims.get("role")
         request.state.user_email = claims.get("email")
-
         return claims
     except Exception:
         _unauthorized()
 
 
-async def get_current_user_id(claims: Mapping[str, Any] = Depends(get_current_claims)) -> UUID | None:
+ClaimsDep = Annotated[dict[str, Any], Depends(get_current_claims)]
+
+async def get_current_user_id(claims: ClaimsDep) -> UUID:
     """
     Dependency to get the current user ID from the JWT claims.
     :param claims: JWT claims from the token
@@ -84,7 +83,7 @@ async def get_current_user_id(claims: Mapping[str, Any] = Depends(get_current_cl
         _unauthorized()
 
 
-async def get_current_user_role(claims: Mapping[str, Any] = Depends(get_current_claims)) -> str:
+async def get_current_user_role(claims:ClaimsDep) -> str:
     """
     Dependency to get the current user role from the JWT claims.
     :param claims: JWT claims from the token
@@ -96,7 +95,7 @@ async def get_current_user_role(claims: Mapping[str, Any] = Depends(get_current_
     return str(role)
 
 
-async def get_current_user_email(claims: Mapping[str, Any] = Depends(get_current_claims)) -> str | None:
+async def get_current_user_email(claims:ClaimsDep) -> str | None:
     """
     Dependency to get the current user email from the JWT claims.
     :param claims: JWT claims from the token
@@ -105,10 +104,10 @@ async def get_current_user_email(claims: Mapping[str, Any] = Depends(get_current
     email = claims.get("email")
     return str(email) if email else None
 
+UserRoleDep = Annotated[str, Depends(get_current_user_role)]
 
-async def require_admin_role(
-    role: str = Depends(get_current_user_role)
-):
+
+async def require_admin_role(role: UserRoleDep) -> None:
     """
     Dependency to ensure the current user has admin role.
     :param role: User role extracted from the claims
@@ -126,9 +125,7 @@ async def require_user_role(*allowed_roles: str):
     :param allowed_roles: Allowed roles
     :return:
     """
-    async def _guard(
-        role: str = Depends(get_current_user_role)
-    ) -> None:
+    async def _guard(role: UserRoleDep) -> None:
         if role not in allowed_roles:
             _forbidden()
 

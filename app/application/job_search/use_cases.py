@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def _to_job_posting(scraped: ScrapedJob) -> JobPosting:
     """Maps a ScrapedJob Value Object to a JobPosting Entity."""
     return JobPosting(
-        external_id=scraped.external_id,
+        external_id=scraped.job_id,
         title=scraped.title,
         company=scraped.company,
         location=scraped.location,

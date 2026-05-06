@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 
 class TokenPairSchema(BaseModel):
@@ -15,3 +15,17 @@ class TokenPayload(BaseModel):
 
 class RefreshToken(BaseModel):
     refresh_token: str
+
+
+class LinkedInCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+class LinkedInAuthUrlResponse(BaseModel):
+    authorization_url: str
+
+
+class LinkedInCodeResponse(BaseModel):
+    code: str
+    redirect_uri: str

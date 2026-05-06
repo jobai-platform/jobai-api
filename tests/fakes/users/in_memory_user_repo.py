@@ -18,6 +18,7 @@ class InMemoryUserRepository(UserRepository):
     def __init__(self) -> None:
         self._users_by_id: dict[str, User] = {}
         self._users_by_email: dict[str, User] = {}
+        self._users_by_linkedin_id: dict[str, User] = {}
 
     async def get_by_id(self, user_id: UUID) -> Optional[User]:
         return self._users_by_id.get(str(user_id))
@@ -47,6 +48,9 @@ class InMemoryUserRepository(UserRepository):
     async def count(self) -> int:
         return len(self._users_by_id)
 
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+        return self._users_by_linkedin_id.get(linkedin_id)
+
     async def create(self, user: User) -> User:
         new_id = uuid4()
 
@@ -60,12 +64,16 @@ class InMemoryUserRepository(UserRepository):
             role=user.role,
             is_active=user.is_active,
             stripe_customer_id=user.stripe_customer_id,
+            linkedin_id=user.linkedin_id,
+            avatar_url=user.avatar_url,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
 
         self._users_by_id[str(new_id)] = created
         self._users_by_email[created.email.value] = created
+        if created.linkedin_id:
+            self._users_by_linkedin_id[created.linkedin_id] = created
         return created
 
     async def update(self, user_id: UUID, user: User) -> Optional[User]:
@@ -85,12 +93,16 @@ class InMemoryUserRepository(UserRepository):
             role=user.role or existing.role,
             is_active=user.is_active if user.is_active is not None else existing.is_active,
             stripe_customer_id=user.stripe_customer_id if user.stripe_customer_id is not None else existing.stripe_customer_id,
+            linkedin_id=user.linkedin_id if user.linkedin_id is not None else existing.linkedin_id,
+            avatar_url=user.avatar_url if user.avatar_url is not None else existing.avatar_url,
             created_at=existing.created_at,
             updated_at=user.updated_at or existing.updated_at,
         )
 
         self._users_by_id[key] = updated
         self._users_by_email[updated.email.value] = updated
+        if updated.linkedin_id:
+            self._users_by_linkedin_id[updated.linkedin_id] = updated
         return updated
 
     async def delete(self, user_id: UUID) -> None:

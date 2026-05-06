@@ -9,6 +9,8 @@ class UserBase(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     stripe_customer_id: str | None = None
+    linkedin_id: str | None = None
+    avatar_url: str | None = None
 
 
 class UserRead(UserBase):

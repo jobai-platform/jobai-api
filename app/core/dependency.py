@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
 from app.application.billing.ports import BillingGateway, BillingPriceRepository, SubscriptionRepository
 from app.application.billing.use_cases import (
     AssignFreemiumOnSignupUseCase,
@@ -10,10 +11,11 @@ from app.application.billing.use_cases import (
     HandleStripeWebhookUseCase,
     SyncStripePricesUseCase,
 )
-from app.application.job_search.ports import JobScraperGateway, JobPostingRepository
+from app.application.job_search.ports import JobPostingRepository, JobScraperGateway
 from app.application.job_search.use_cases import SearchJobsUseCase
 from app.application.users.ports import UserRepository
 from app.application.users.use_cases import UserService
+from app.core.config import settings
 from app.infrastructure.billing.stripe_gateway import StripeGateway
 from app.infrastructure.config.database import get_async_session
 from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsScraperAdapter
@@ -21,8 +23,9 @@ from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import JobPostingSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.subscription_sqlalchemy import SubscriptionSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
+from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
+from app.infrastructure.security.linkedin_oauth_adapter import LinkedInOAuthAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
-
 
 DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
@@ -110,6 +113,26 @@ def get_search_jobs_use_case(
         job_posting_repo=job_posting_repository,
     )
 
+# ---------------------------------------------------------------------------
+# LinkedIn OAuth — factories
+# ---------------------------------------------------------------------------
+def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
+    return LinkedInOAuthAdapter(
+        client_id=settings.LINKEDIN_CLIENT_ID,
+        client_secret=settings.LINKEDIN_CLIENT_SECRET,
+    )
+
+def get_linkedin_oauth_use_case(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    freemium: Annotated[AssignFreemiumOnSignupUseCase, Depends(get_assign_freemium_on_signup_use_case)],
+) -> LinkedInOAuthUseCase:
+    return LinkedInOAuthUseCase(
+        oauth_gateway=get_linkedin_oauth_adapter(),
+        user_repo=user_repo,
+        token_service=JWTTokenServiceAdapter(),
+        freemium_use_case=freemium,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Annotated aliases - to be imported in the routes
@@ -123,4 +146,5 @@ HandleWebhookDep = Annotated[HandleStripeWebhookUseCase, Depends(get_handle_stri
 SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_prices_use_case)]
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
 SearchJobsDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
+LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
 

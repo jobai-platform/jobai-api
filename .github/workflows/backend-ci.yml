@@ -33,6 +33,26 @@ jobs:
       IMAGE_NAME: ghcr.io/${{ github.repository }}/jobai-backend
       PYTHON_VERSION: "3.13"
       TAG: ${{ github.sha }}
+      DATABASE_URL: postgresql+asyncpg://jobai:jobai@localhost:5432/jobai_test
+      DATABASE_URL_TEST: postgresql+asyncpg://jobai:jobai@localhost:5432/jobai_test
+      JWT_SECRET: ci-test-secret-not-for-production
+      LINKEDIN_CLIENT_ID: dummy
+      LINKEDIN_CLIENT_SECRET: dummy
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: jobai
+          POSTGRES_PASSWORD: jobai
+          POSTGRES_DB: jobai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code

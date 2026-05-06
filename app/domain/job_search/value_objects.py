@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -15,6 +13,7 @@ class JobSearchQuery:
     limit: int = 25
     remote_only: bool = False
     date_posted_within_days: int | None = 7
+    easy_apply_only: bool | None = None  # None = both, True = Easy Apply only, False = external ATS only
 
 
 @dataclass(frozen=True, slots=True)

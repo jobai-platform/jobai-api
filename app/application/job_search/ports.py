@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Optional
 from uuid import UUID
 
 from app.domain.job_search.entities import JobPosting
+from app.domain.job_search.search_agent import SearchAgent
 from app.domain.job_search.value_objects import JobSearchQuery, ScrapedJob
 
 
@@ -95,4 +98,29 @@ class JobPostingRepository(ABC):
         :param candidate_id: Candidate user ID.
         :return: Number of new job postings.
         """
+        raise NotImplementedError()
+
+
+class SearchAgentRepository(ABC):
+    """Interface for SearchAgent persistence."""
+
+    @abstractmethod
+    async def save(self, agent: SearchAgent) -> SearchAgent:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def get_by_id(self, agent_id: UUID) -> Optional[SearchAgent]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def get_by_candidate_id(self, candidate_id: UUID) -> Optional[SearchAgent]:
+        """Return the active agent for a candidate (at most one)."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def list_by_candidate(self, candidate_id: UUID) -> list[SearchAgent]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def delete(self, agent_id: UUID) -> None:
         raise NotImplementedError()

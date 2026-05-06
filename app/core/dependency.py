@@ -11,7 +11,14 @@ from app.application.billing.use_cases import (
     HandleStripeWebhookUseCase,
     SyncStripePricesUseCase,
 )
-from app.application.job_search.ports import JobPostingRepository, JobScraperGateway
+from app.application.job_search.ports import JobPostingRepository, JobScraperGateway, SearchAgentRepository
+from app.application.job_search.search_agent_use_cases import (
+    CreateSearchAgentUseCase,
+    DeleteSearchAgentUseCase,
+    GetSearchAgentUseCase,
+    RunSearchAgentUseCase,
+    UpdateSearchAgentUseCase,
+)
 from app.application.job_search.use_cases import SearchJobsUseCase
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.candidate_profile_use_cases import (
@@ -26,6 +33,7 @@ from app.infrastructure.config.database import get_async_session
 from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsScraperAdapter
 from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import BillingPriceSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import JobPostingSQLAlchemyRepository
+from app.infrastructure.persistence.repositories.search_agent_sqlalchemy import SQLAlchemySearchAgentRepository
 from app.infrastructure.persistence.repositories.subscription_sqlalchemy import SubscriptionSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy import SQLAlchemyCandidateProfileRepository
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
@@ -136,6 +144,35 @@ def get_search_jobs_use_case(
         job_posting_repo=job_posting_repository,
     )
 
+def get_search_agent_repository(session: DbSession) -> SearchAgentRepository:
+    return SQLAlchemySearchAgentRepository(session=session)
+
+def get_create_search_agent_use_case(
+    repo: Annotated[SearchAgentRepository, Depends(get_search_agent_repository)],
+) -> CreateSearchAgentUseCase:
+    return CreateSearchAgentUseCase(repo=repo)
+
+def get_get_search_agent_use_case(
+    repo: Annotated[SearchAgentRepository, Depends(get_search_agent_repository)],
+) -> GetSearchAgentUseCase:
+    return GetSearchAgentUseCase(repo=repo)
+
+def get_update_search_agent_use_case(
+    repo: Annotated[SearchAgentRepository, Depends(get_search_agent_repository)],
+) -> UpdateSearchAgentUseCase:
+    return UpdateSearchAgentUseCase(repo=repo)
+
+def get_delete_search_agent_use_case(
+    repo: Annotated[SearchAgentRepository, Depends(get_search_agent_repository)],
+) -> DeleteSearchAgentUseCase:
+    return DeleteSearchAgentUseCase(repo=repo)
+
+def get_run_search_agent_use_case(
+    repo: Annotated[SearchAgentRepository, Depends(get_search_agent_repository)],
+    search_uc: Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)],
+) -> RunSearchAgentUseCase:
+    return RunSearchAgentUseCase(agent_repo=repo, search_jobs_use_case=search_uc)
+
 # ---------------------------------------------------------------------------
 # LinkedIn OAuth — factories
 # ---------------------------------------------------------------------------
@@ -171,6 +208,11 @@ HandleWebhookDep = Annotated[HandleStripeWebhookUseCase, Depends(get_handle_stri
 SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_prices_use_case)]
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
 SearchJobsDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
+CreateSearchAgentDep = Annotated[CreateSearchAgentUseCase, Depends(get_create_search_agent_use_case)]
+GetSearchAgentDep = Annotated[GetSearchAgentUseCase, Depends(get_get_search_agent_use_case)]
+UpdateSearchAgentDep = Annotated[UpdateSearchAgentUseCase, Depends(get_update_search_agent_use_case)]
+DeleteSearchAgentDep = Annotated[DeleteSearchAgentUseCase, Depends(get_delete_search_agent_use_case)]
+RunSearchAgentDep = Annotated[RunSearchAgentUseCase, Depends(get_run_search_agent_use_case)]
 LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
 GetCandidateProfileDep = Annotated[GetCandidateProfileUseCase, Depends(get_candidate_profile_use_case)]
 UpsertCandidateProfileDep = Annotated[UpsertCandidateProfileUseCase, Depends(get_upsert_candidate_profile_use_case)]

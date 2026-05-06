@@ -20,11 +20,13 @@ from app.application.job_search.search_agent_use_cases import (
     UpdateSearchAgentUseCase,
 )
 from app.application.job_search.use_cases import SearchJobsUseCase
+from app.application.storage.ports import StorageGateway
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.candidate_profile_use_cases import (
     GetCandidateProfileUseCase,
     UpsertCandidateProfileUseCase,
 )
+from app.application.users.cv_use_cases import DeleteCVUseCase, UploadCVUseCase
 from app.application.users.ports import UserRepository
 from app.application.users.use_cases import UserService
 from app.core.config import settings
@@ -40,6 +42,7 @@ from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlche
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.linkedin_oauth_adapter import LinkedInOAuthAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
+from app.infrastructure.storage.s3_gateway import S3StorageGateway
 
 DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
@@ -174,6 +177,24 @@ def get_run_search_agent_use_case(
     return RunSearchAgentUseCase(agent_repo=repo, search_jobs_use_case=search_uc)
 
 # ---------------------------------------------------------------------------
+# Storage — factories
+# ---------------------------------------------------------------------------
+def get_storage_gateway() -> StorageGateway:
+    return S3StorageGateway()
+
+def get_upload_cv_use_case(
+    profile_repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+    storage: Annotated[StorageGateway, Depends(get_storage_gateway)],
+) -> UploadCVUseCase:
+    return UploadCVUseCase(profile_repo=profile_repo, storage=storage)
+
+def get_delete_cv_use_case(
+    profile_repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+    storage: Annotated[StorageGateway, Depends(get_storage_gateway)],
+) -> DeleteCVUseCase:
+    return DeleteCVUseCase(profile_repo=profile_repo, storage=storage)
+
+# ---------------------------------------------------------------------------
 # LinkedIn OAuth — factories
 # ---------------------------------------------------------------------------
 def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
@@ -216,4 +237,6 @@ RunSearchAgentDep = Annotated[RunSearchAgentUseCase, Depends(get_run_search_agen
 LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
 GetCandidateProfileDep = Annotated[GetCandidateProfileUseCase, Depends(get_candidate_profile_use_case)]
 UpsertCandidateProfileDep = Annotated[UpsertCandidateProfileUseCase, Depends(get_upsert_candidate_profile_use_case)]
+UploadCVDep = Annotated[UploadCVUseCase, Depends(get_upload_cv_use_case)]
+DeleteCVDep = Annotated[DeleteCVUseCase, Depends(get_delete_cv_use_case)]
 

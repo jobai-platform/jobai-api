@@ -34,5 +34,13 @@ class Settings:
       or None
   )
 
+  # S3 / MinIO storage
+  S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+  S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
+  S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
+  S3_BUCKET_CVS: str = os.getenv("S3_BUCKET_CVS", "jobai-cvs")
+  S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
+  S3_PUBLIC_BASE_URL: str = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
+
 
 settings = Settings()

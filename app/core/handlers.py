@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.presentation.api.v1.auth_routes import router as auth_router
+from app.presentation.api.v1.candidate_profile_routes import router as candidate_profile_router
 from app.presentation.api.v1.job_search_routes import router as job_search_router
 from app.presentation.api.v1.stripe_routes import router as stripe_router
 from app.presentation.api.v1.users_routes import router as users_router
@@ -19,6 +20,7 @@ def setup_routers(app: FastAPI, prefix: str = "/api/v1") -> None:
         auth_router,
         stripe_router,
         job_search_router,
+        candidate_profile_router,
     ]
 
     for router in routers:

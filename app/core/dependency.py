@@ -13,6 +13,11 @@ from app.application.billing.use_cases import (
 )
 from app.application.job_search.ports import JobPostingRepository, JobScraperGateway
 from app.application.job_search.use_cases import SearchJobsUseCase
+from app.application.users.candidate_profile_ports import CandidateProfileRepository
+from app.application.users.candidate_profile_use_cases import (
+    GetCandidateProfileUseCase,
+    UpsertCandidateProfileUseCase,
+)
 from app.application.users.ports import UserRepository
 from app.application.users.use_cases import UserService
 from app.core.config import settings
@@ -22,6 +27,7 @@ from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsS
 from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import BillingPriceSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import JobPostingSQLAlchemyRepository
 from app.infrastructure.persistence.repositories.subscription_sqlalchemy import SubscriptionSQLAlchemyRepository
+from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy import SQLAlchemyCandidateProfileRepository
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.linkedin_oauth_adapter import LinkedInOAuthAdapter
@@ -114,6 +120,22 @@ def get_search_jobs_use_case(
     )
 
 # ---------------------------------------------------------------------------
+# Candidate Profile - factories
+# ---------------------------------------------------------------------------
+def get_candidate_profile_repository(session: DbSession) -> CandidateProfileRepository:
+    return SQLAlchemyCandidateProfileRepository(session=session)
+
+def get_candidate_profile_use_case(
+    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+) -> GetCandidateProfileUseCase:
+    return GetCandidateProfileUseCase(repo=repo)
+
+def get_upsert_candidate_profile_use_case(
+    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+) -> UpsertCandidateProfileUseCase:
+    return UpsertCandidateProfileUseCase(repo=repo)
+
+# ---------------------------------------------------------------------------
 # LinkedIn OAuth — factories
 # ---------------------------------------------------------------------------
 def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
@@ -147,4 +169,6 @@ SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_price
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
 SearchJobsDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
 LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
+GetCandidateProfileDep = Annotated[GetCandidateProfileUseCase, Depends(get_candidate_profile_use_case)]
+UpsertCandidateProfileDep = Annotated[UpsertCandidateProfileUseCase, Depends(get_upsert_candidate_profile_use_case)]
 

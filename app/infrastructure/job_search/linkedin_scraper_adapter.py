@@ -1,13 +1,33 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import date
 from typing import Optional
+from urllib.parse import parse_qs, unquote, urlparse
 
 from app.application.job_search.ports import JobScraperGateway
 from app.core.config import settings
 from app.domain.job_search.value_objects import JobSearchQuery, ScrapedJob
 
 logger = logging.getLogger(__name__)
+
+
+def _decode_linkedin_safety_url(raw_url: str) -> str:
+    """
+    LinkedIn wraps external apply URLs in a safety redirect:
+      https://www.linkedin.com/safety/go/?url=<encoded-real-url>&...
+    This extracts and returns the real destination URL.
+    If the URL is not a safety redirect, it is returned unchanged.
+    """
+    if not raw_url or "linkedin.com/safety/go" not in raw_url:
+        return raw_url
+    try:
+        params = parse_qs(urlparse(raw_url).query)
+        real = params.get("url", [""])[0]
+        return unquote(real) if real else raw_url
+    except Exception:
+        return raw_url
 
 
 class LinkedInJobsScraperAdapter(JobScraperGateway):
@@ -26,11 +46,12 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
 
     async def search_jobs(self, query: JobSearchQuery) -> list[ScrapedJob]:
         logger.info(
-            "JobSpyAdapter.search_jobs: keywords=%r location=%r limit=%d remote_only=%s",
+            "JobSpyAdapter.search_jobs: keywords=%r location=%r limit=%d remote_only=%s easy_apply=%s",
             query.keywords,
             query.location,
             query.limit,
             query.remote_only,
+            query.easy_apply_only,
         )
 
         loop = asyncio.get_event_loop()
@@ -96,9 +117,14 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
         job_type = str(job_type_raw) if job_type_raw else None
 
         job_url = str(row.get("job_url") or "")
-        # job_url_direct = external ATS link (Workday, Greenhouse…)
-        # Falls back to the LinkedIn job page so apply_url is never NULL
-        apply_url = str(row["job_url_direct"]) if row.get("job_url_direct") else job_url or None
+
+        # job_url_direct may be a LinkedIn safety redirect — decode it to get the real ATS URL.
+        # Falls back to job_url (LinkedIn page) when no external URL is available (Easy Apply).
+        raw_direct = row.get("job_url_direct")
+        if raw_direct:
+            apply_url: str | None = _decode_linkedin_safety_url(str(raw_direct))
+        else:
+            apply_url = job_url or None
 
         return ScrapedJob(
             job_id=str(row.get("id") or job_url or ""),

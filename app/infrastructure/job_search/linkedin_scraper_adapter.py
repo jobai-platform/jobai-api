@@ -4,6 +4,7 @@ from datetime import date
 from typing import Optional
 
 from app.application.job_search.ports import JobScraperGateway
+from app.core.config import settings
 from app.domain.job_search.value_objects import JobSearchQuery, ScrapedJob
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,8 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
     def _run_scrape(self, query: JobSearchQuery):
         from jobspy import scrape_jobs  # local import — heavy dep
 
+        proxies = settings.LINKEDIN_PROXIES or None
+
         return scrape_jobs(
             site_name=self._build_site_name(),
             search_term=query.keywords,
@@ -67,7 +70,9 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
             results_wanted=query.limit,
             is_remote=query.remote_only,
             hours_old=self._map_hours_old(query.date_posted_within_days),
+            easy_apply=query.easy_apply_only,
             linkedin_fetch_description=True,
+            proxies=proxies,
         )
 
     def _row_to_scraped_job(self, row) -> ScrapedJob:
@@ -90,15 +95,20 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
         job_type_raw = row.get("job_type")
         job_type = str(job_type_raw) if job_type_raw else None
 
+        job_url = str(row.get("job_url") or "")
+        # job_url_direct = external ATS link (Workday, Greenhouse…)
+        # Falls back to the LinkedIn job page so apply_url is never NULL
+        apply_url = str(row["job_url_direct"]) if row.get("job_url_direct") else job_url or None
+
         return ScrapedJob(
-            job_id=str(row.get("id") or row.get("job_url") or ""),
+            job_id=str(row.get("id") or job_url or ""),
             title=str(row.get("title") or ""),
             company=str(row.get("company") or ""),
             location=str(row.get("location") or ""),
             description=str(row.get("description") or ""),
-            url=str(row.get("job_url") or ""),
+            url=job_url,
             source="LinkedIn",
-            apply_url=str(row["job_url_direct"]) if row.get("job_url_direct") else None,
+            apply_url=apply_url,
             company_url=str(row["company_url"]) if row.get("company_url") else None,
             posted_at=posted_at,
             is_remote=bool(row.get("is_remote")) if row.get("is_remote") is not None else None,

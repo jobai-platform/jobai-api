@@ -27,5 +27,12 @@ class Settings:
   LINKEDIN_CLIENT_SECRET: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
   LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "http://localhost:8000/api/v1/auth/linkedin/callback")
 
+  # LinkedIn scraper proxies — comma-separated list, e.g. "http://user:pass@host:port,http://..."
+  # Leave empty in dev. Required in prod to avoid LinkedIn rate-limiting.
+  LINKEDIN_PROXIES: list[str] | None = (
+      [p.strip() for p in os.getenv("LINKEDIN_PROXIES", "").split(",") if p.strip()]
+      or None
+  )
+
 
 settings = Settings()

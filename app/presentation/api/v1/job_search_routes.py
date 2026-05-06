@@ -52,6 +52,7 @@ async def search_jobs(
             limit=payload.limit,
             remote_only=payload.remote_only,
             date_posted_within_days=payload.date_posted_within_days,
+            easy_apply_only=payload.easy_apply_only,
         )
         return to_job_search_response(result)
     except RuntimeError as exc:

@@ -51,6 +51,7 @@ class SearchJobsUseCase:
         limit: int = 25,
         remote_only: bool = False,
         date_posted_within_days: int | None = 7,
+        easy_apply_only: bool | None = None,
     ) -> JobSearchResult:
         """
         Search for job postings matching the given parameters.
@@ -67,6 +68,7 @@ class SearchJobsUseCase:
             limit=limit,
             remote_only=remote_only,
             date_posted_within_days=date_posted_within_days,
+            easy_apply_only=easy_apply_only,
         )
         jobs = await self.scraper.search_jobs(query)
 

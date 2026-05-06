@@ -1,5 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +12,7 @@ class JobSearchRequest(BaseModel):
     limit: int = Field(default=25, ge=1, le=100)
     remote_only: bool = Field(default=False)
     date_posted_within_days: Optional[int] = Field(default=7, ge=1, le=30)
+    easy_apply_only: Optional[bool] = Field(default=None)
 
 
 class ScrapedJobSchema(BaseModel):
@@ -41,3 +43,50 @@ class JobSearchResponse(BaseModel):
     location: str
     source: str
     has_results: bool
+
+
+# ---------------------------------------------------------------------------
+# SearchAgent schemas
+# ---------------------------------------------------------------------------
+
+class SearchAgentCreateRequest(BaseModel):
+    keywords: str = Field(..., min_length=1, max_length=255)
+    location: str = Field(..., min_length=1, max_length=255)
+    remote_only: bool = Field(default=False)
+    date_posted_within_days: int = Field(default=7, ge=1, le=30)
+    limit: int = Field(default=25, ge=1, le=100)
+    easy_apply_only: Optional[bool] = Field(
+        default=None,
+        description="null = both, true = Easy Apply only, false = external ATS only",
+    )
+
+
+class SearchAgentUpdateRequest(BaseModel):
+    keywords: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    location: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    remote_only: Optional[bool] = None
+    date_posted_within_days: Optional[int] = Field(default=None, ge=1, le=30)
+    limit: Optional[int] = Field(default=None, ge=1, le=100)
+    easy_apply_only: Optional[bool] = None
+
+
+class SearchAgentResponse(BaseModel):
+    id: UUID
+    candidate_id: UUID
+    keywords: str
+    location: str
+    remote_only: bool
+    date_posted_within_days: int
+    limit: int
+    easy_apply_only: Optional[bool] = None
+    is_active: bool
+    last_run_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RunSearchAgentResponse(BaseModel):
+    agent: SearchAgentResponse
+    jobs_found: int

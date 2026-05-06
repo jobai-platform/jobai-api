@@ -91,6 +91,11 @@ class UserRepository(ABC):
         """Permanently delete rows soft-deleted at or before cutoff. Returns count."""
         raise NotImplementedError()
 
+    @abstractmethod
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+        """Return the user whose linkedin_id matches, or None."""
+        raise NotImplementedError()
+
 
 class PasswordHasher(ABC):
     """Port pour le hash de mot de passe (adapter : PasswordService)."""

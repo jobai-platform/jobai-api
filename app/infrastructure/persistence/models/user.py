@@ -86,6 +86,19 @@ class UserModel(Base):
         onupdate=func.now(),
     )
 
+    # OAuth social fields
+    linkedin_id: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+
+    avatar_url: Mapped[str | None] = mapped_column(
+        String(512),
+        nullable=True,
+    )
+
     # Soft delete fields
     is_deleted: Mapped[bool] = mapped_column(
         Boolean,

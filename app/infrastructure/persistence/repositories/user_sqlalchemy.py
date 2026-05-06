@@ -34,6 +34,8 @@ def _to_domain(row: UserModel) -> User:
         role=row.role,
         is_active=row.is_active,
         stripe_customer_id=row.stripe_customer_id,
+        linkedin_id=getattr(row, "linkedin_id", None),
+        avatar_url=getattr(row, "avatar_url", None),
         created_at=row.created_at,
         updated_at=row.updated_at,
         deletion=deletion,
@@ -122,6 +124,8 @@ class SqlAlchemyUserRepository(UserRepository):
             role=user.role,
             is_active=user.is_active,
             stripe_customer_id=user.stripe_customer_id,
+            linkedin_id=user.linkedin_id,
+            avatar_url=user.avatar_url,
         )
 
         self.session.add(new_user)
@@ -160,6 +164,8 @@ class SqlAlchemyUserRepository(UserRepository):
             "role": user.role or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
             "stripe_customer_id": user.stripe_customer_id or existing_row.stripe_customer_id,
+            "linkedin_id": user.linkedin_id if user.linkedin_id is not None else existing_row.linkedin_id,
+            "avatar_url": user.avatar_url if user.avatar_url is not None else existing_row.avatar_url,
         }
 
         await self.session.execute(
@@ -223,6 +229,14 @@ class SqlAlchemyUserRepository(UserRepository):
         if count:
             await self.session.commit()
         return count
+
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+        """Return the user with the given linkedin_id, or None."""
+        result = await self.session.execute(
+            select(UserModel).where(UserModel.linkedin_id == linkedin_id)
+        )
+        row = result.scalars().one_or_none()
+        return _to_domain(row) if row else None
 
     async def count(self) -> int:
         """

@@ -21,6 +21,7 @@ bcrypt = "^5.0.0"
 pytest = "^8.4.2"
 stripe = "^14.4.1"
 linkedin-jobs-scraper = "^5.0.2"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

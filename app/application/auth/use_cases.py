@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from app.application.auth.ports import TokenService
-from app.application.users.ports import UserRepository, PasswordHasher
+from app.application.users.ports import PasswordHasher, UserRepository
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email
 
@@ -11,7 +11,7 @@ from app.domain.users.value_objects import Email
 class TokenPair:
     access_token: str
     refresh_token: str
-    token_type: str = 'Bearer'
+    token_type: str = "Bearer"
 
 
 class AuthService:

@@ -49,6 +49,10 @@ class CandidateProfile:
     def is_complete(self) -> bool:
         return bool(self.current_title) and len(self.skills) > 0
 
+    def clear_cv(self) -> None:
+        self.cv_url = None
+        self.updated_at = _utcnow()
+
     def upsert(
         self,
         current_title: str | None = None,

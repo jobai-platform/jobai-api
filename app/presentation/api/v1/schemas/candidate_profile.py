@@ -29,6 +29,13 @@ class UpsertCandidateProfileRequest(BaseModel):
         return self
 
 
+class CVUploadResponse(BaseModel):
+    key: str
+    url: str
+    size: int
+    content_type: str
+
+
 class CandidateProfileResponse(BaseModel):
     id: Optional[UUID]
     user_id: UUID

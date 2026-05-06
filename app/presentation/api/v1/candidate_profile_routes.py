@@ -2,12 +2,21 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi.responses import Response
 
 from app.application.users.candidate_profile_use_cases import UpsertProfileCommand
-from app.core.dependency import GetCandidateProfileDep, UpsertCandidateProfileDep
+from app.application.users.cv_use_cases import UploadCVCommand
+from app.core.dependency import (
+    DeleteCVDep,
+    GetCandidateProfileDep,
+    UploadCVDep,
+    UpsertCandidateProfileDep,
+)
+from app.domain.common.exceptions import BadRequestError, NotFoundError
 from app.domain.users.candidate_profile import CandidateProfile
 from app.presentation.api.v1.schemas.candidate_profile import (
+    CVUploadResponse,
     CandidateProfileResponse,
     UpsertCandidateProfileRequest,
 )
@@ -76,3 +85,60 @@ async def upsert_my_profile(
         cv_url=body.cv_url,
     ))
     return _to_response(profile)
+
+
+@router.post(
+    "/me/cv",
+    response_model=CVUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload my CV",
+    description="Upload a PDF or Word document (max 5 MB). Replaces any existing CV.",
+    responses={
+        201: {"description": "CV uploaded successfully"},
+        400: {"description": "Invalid file (empty, too large, or wrong type)"},
+        401: {"description": "Authentication required"},
+        404: {"description": "Candidate profile not found"},
+    },
+)
+async def upload_cv(
+    file: UploadFile,
+    current_user_id: CurrentUserIdDep,
+    use_case: UploadCVDep,
+) -> CVUploadResponse:
+    data = await file.read()
+    try:
+        result = await use_case.execute(UploadCVCommand(
+            user_id=current_user_id,
+            filename=file.filename or "cv",
+            content_type=file.content_type or "application/octet-stream",
+            data=data,
+        ))
+    except BadRequestError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.code) from None
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.code) from None
+    return CVUploadResponse(key=result.key, url=result.url, size=result.size, content_type=result.content_type)
+
+
+@router.delete(
+    "/me/cv",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete my CV",
+    responses={
+        204: {"description": "CV deleted"},
+        400: {"description": "No CV to delete"},
+        401: {"description": "Authentication required"},
+        404: {"description": "Candidate profile not found"},
+    },
+)
+async def delete_cv(
+    current_user_id: CurrentUserIdDep,
+    use_case: DeleteCVDep,
+) -> Response:
+    try:
+        await use_case.execute(current_user_id)
+    except BadRequestError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.code) from None
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.code) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

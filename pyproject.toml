@@ -22,6 +22,7 @@ pytest = "^8.4.2"
 stripe = "^14.4.1"
 httpx = "^0.28.1"
 python-jobspy = "^1.1.82"
+aioboto3 = "^15.5.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.0"

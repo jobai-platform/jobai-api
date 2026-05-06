@@ -82,7 +82,7 @@ class LinkedInJobsScraperAdapter(JobScraperGateway):
             posted_at=data.date if hasattr(data, "date") else None,
         )
 
-    async def scrape_jobs(self, query: JobSearchQuery) -> list[ScrapedJob]:
+    async def search_jobs(self, query: JobSearchQuery) -> list[ScrapedJob]:
         """
         Scrapes LinkedIn job posting matching the given query.
         Runs the asynchronous scraper in a thread pool to avoid blocking the event loop.

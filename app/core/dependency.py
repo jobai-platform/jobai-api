@@ -122,5 +122,5 @@ CreateCheckoutDep = Annotated[CreateCheckoutSessionUseCase, Depends(get_create_c
 HandleWebhookDep = Annotated[HandleStripeWebhookUseCase, Depends(get_handle_stripe_webhook_use_case)]
 SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_prices_use_case)]
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
-SearchJobDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
+SearchJobsDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
 

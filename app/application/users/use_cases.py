@@ -2,8 +2,10 @@ from typing import Optional, Sequence
 from uuid import UUID
 from datetime import datetime
 
+from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.ports import UserRepository, PasswordHasher
 from app.domain.common.exceptions import ConflictError, BadRequestError, NotFoundError
+from app.domain.users.candidate_profile import CandidateProfile
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email
 
@@ -15,9 +17,15 @@ class UserService:
     - Raises domain-friendly AppErrors exceptions for consistent HTTP mapping
       in Presentation layer (FastAPI exceptions handlers).
     """
-    def __init__(self, user_repo: UserRepository, pwd_hasher: PasswordHasher):
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        pwd_hasher: PasswordHasher,
+        profile_repo: CandidateProfileRepository | None = None,
+    ):
         self.repo = user_repo
         self.pwd_hasher = pwd_hasher
+        self._profile_repo = profile_repo
 
 
     def _to_email_vo(self, email: str | Email) -> Email:
@@ -84,7 +92,12 @@ class UserService:
             is_active = is_active,
         )
 
-        return await self.repo.create(user)
+        created = await self.repo.create(user)
+
+        if self._profile_repo is not None:
+            await self._profile_repo.save(CandidateProfile(user_id=created.id))
+
+        return created
 
     async def list_users(
         self,

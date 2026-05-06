@@ -16,6 +16,8 @@ def to_user_read(user: User) -> UserRead:
         first_name=user.first_name,
         last_name=user.last_name,
         stripe_customer_id=user.stripe_customer_id,
+        linkedin_id=user.linkedin_id,
+        avatar_url=user.avatar_url,
         role=user.role,
         is_active=user.is_active,
         created_at=user.created_at,

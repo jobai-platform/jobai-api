@@ -1,10 +1,11 @@
 import logging
+from uuid import UUID
 
 from app.application.auth.ports import OAuthGateway, TokenService
 from app.application.auth.use_cases import TokenPair
 from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
 from app.application.users.ports import UserRepository
-from app.domain.common.exceptions import UnauthorizedError
+from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email, LinkedInProfile
 
@@ -20,7 +21,6 @@ class LinkedInOAuthUseCase:
       2. Existing user found by email → attach linkedin_id + avatar, issue JWT (merge).
       3. No user found → create new User, assign freemium, issue JWT (signup).
     """
-
     def __init__(
         self,
         oauth_gateway: OAuthGateway,
@@ -61,7 +61,7 @@ class LinkedInOAuthUseCase:
     async def _resolve_user(self, profile: LinkedInProfile) -> User:
         logger.debug("LinkedInOAuth._resolve_user: looking up linkedin_id=%r", profile.linkedin_id)
 
-        # Branch 1 — returning user (already connected LinkedIn)
+        # Branch 1 — returning user (linkedin_id already attached)
         existing = await self._user_repo.find_by_linkedin_id(profile.linkedin_id)
         if existing:
             logger.info(
@@ -71,24 +71,13 @@ class LinkedInOAuthUseCase:
             )
             return existing
 
-        # Branch 2 — email collision: user registered with password
+        # Branch 2 — brand-new user (signup via LinkedIn)
+        # No email-based merge: linking to an existing account must be done
+        # explicitly via POST /auth/linkedin/link (authenticated endpoint).
         email_vo = Email.from_raw(profile.email)
-        logger.debug("LinkedInOAuth._resolve_user: no match by linkedin_id, checking email=%r", profile.email)
-        by_email = await self._user_repo.get_by_email(email_vo)
-        if by_email:
-            logger.info(
-                "LinkedInOAuth._resolve_user: [branch=merge] attaching linkedin_id=%r to existing user_id=%s",
-                profile.linkedin_id,
-                by_email.id,
-            )
-            by_email.attach_linkedin(profile)
-            await self._user_repo.update(by_email.id, by_email)
-            logger.info("LinkedInOAuth._resolve_user: [branch=merge] update persisted for user_id=%s", by_email.id)
-            return by_email
-
-        # Branch 3 — brand-new user
         logger.info(
-            "LinkedInOAuth._resolve_user: [branch=signup] no existing user found, creating new user email=%r",
+            "LinkedInOAuth._resolve_user: [branch=signup] no existing user found for linkedin_id=%r, creating new user email=%r",
+            profile.linkedin_id,
             profile.email,
         )
         new_user = User(
@@ -108,6 +97,60 @@ class LinkedInOAuthUseCase:
         logger.info("LinkedInOAuth._resolve_user: [branch=signup] freemium assigned to user_id=%s", created.id)
 
         return created
+
+    async def link_to_existing_user(self, *, current_user_id: UUID, code: str, redirect_uri: str) -> None:
+        """
+        Link a LinkedIn identity to an already-authenticated user.
+        Does NOT create a new user — attaches linkedin_id + avatar_url to the existing account.
+
+        Raises:
+          UnauthorizedError  — if the LinkedIn code exchange fails
+          NotFoundError      — if current_user_id doesn't exist
+          ConflictError      — if the linkedin_id is already attached to a different account
+        """
+        logger.info(
+            "LinkedInOAuth.link_to_existing_user: user_id=%s starting code exchange",
+            current_user_id,
+        )
+        try:
+            profile: LinkedInProfile = await self._gateway.exchange_code(code, redirect_uri)
+        except Exception as exc:
+            logger.warning("LinkedInOAuth.link_to_existing_user: code exchange failed — %s", exc)
+            raise UnauthorizedError(
+                code="linkedin_auth_failed",
+                details="LinkedIn authentication failed. Please try again.",
+            ) from exc
+
+        logger.info(
+            "LinkedInOAuth.link_to_existing_user: code exchanged linkedin_id=%r email=%r",
+            profile.linkedin_id,
+            profile.email,
+        )
+
+        # Guard — linkedin_id already used by another account
+        taken = await self._user_repo.find_by_linkedin_id(profile.linkedin_id)
+        if taken and taken.id != current_user_id:
+            logger.warning(
+                "LinkedInOAuth.link_to_existing_user: linkedin_id=%r already attached to user_id=%s",
+                profile.linkedin_id,
+                taken.id,
+            )
+            raise ConflictError(
+                code="linkedin_already_linked",
+                details="This LinkedIn account is already linked to another user.",
+            )
+
+        user = await self._user_repo.get_by_id(current_user_id)
+        if not user:
+            raise NotFoundError(code="user_not_found", details="User not found.")
+
+        user.attach_linkedin(profile)
+        await self._user_repo.update(user.id, user)
+        logger.info(
+            "LinkedInOAuth.link_to_existing_user: linkedin_id=%r linked to user_id=%s",
+            profile.linkedin_id,
+            user.id,
+        )
 
     def build_authorization_url(self, redirect_uri: str, state: str) -> str:
         logger.debug("LinkedInOAuth.build_authorization_url: redirect_uri=%r state=%r", redirect_uri, state)

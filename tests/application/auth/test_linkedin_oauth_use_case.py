@@ -159,34 +159,106 @@ async def test_linkedin_oauth_returning_user_does_not_trigger_freemium():
 
 
 # ---------------------------------------------------------------------------
-# Branch 3 — email collision (existing password user connects via LinkedIn)
+# execute() — email collision creates a NEW user, no silent merge
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_linkedin_oauth_merges_linkedin_id_onto_existing_email_user():
+async def test_linkedin_oauth_creates_new_user_even_if_email_exists():
+    """
+    execute() must NOT merge by email — that belongs to link_to_existing_user().
+    A user with same email but different linkedin_id → new account created.
+    """
     repo = InMemoryUserRepository()
-    existing = await repo.create(User(
+    await repo.create(User(
         id=None,
         email=Email.from_raw("alice@example.com"),
         hashed_password="hashed-secret",
-        first_name="Alice",
-        last_name="Smith",
     ))
 
-    profile = _make_profile(avatar_url="https://new-avatar.jpg")
+    profile = _make_profile()
     use_case, _ = _make_use_case(profile=profile, repo=repo)
 
     result = await use_case.execute(code="code", redirect_uri="https://cb")
 
     assert isinstance(result, TokenPair)
+    # A second user was created — no silent merge
+    assert await repo.count() == 2
+
+
+# ---------------------------------------------------------------------------
+# link_to_existing_user() — attach LinkedIn to an authenticated account
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_link_to_existing_user_attaches_linkedin_id():
+    repo = InMemoryUserRepository()
+    existing = await repo.create(User(
+        id=None,
+        email=Email.from_raw("alice@example.com"),
+        hashed_password="hashed-secret",
+    ))
+
+    profile = _make_profile(avatar_url="https://new-avatar.jpg")
+    use_case, _ = _make_use_case(profile=profile, repo=repo)
+
+    await use_case.link_to_existing_user(
+        current_user_id=existing.id,
+        code="code",
+        redirect_uri="https://cb",
+    )
 
     updated = await repo.get_by_email(Email.from_raw("alice@example.com"))
     assert updated.linkedin_id == "li_abc123"
     assert updated.avatar_url == "https://new-avatar.jpg"
-    # Password must be preserved — not wiped
     assert updated.hashed_password == "hashed-secret"
-    # No duplicate
     assert await repo.count() == 1
+
+
+@pytest.mark.asyncio
+async def test_link_to_existing_user_raises_conflict_if_linkedin_id_taken_by_other():
+    from app.domain.common.exceptions import ConflictError
+
+    repo = InMemoryUserRepository()
+    # another user already has this linkedin_id
+    await repo.create(User(
+        id=None,
+        email=Email.from_raw("other@example.com"),
+        linkedin_id="li_abc123",
+    ))
+    target = await repo.create(User(
+        id=None,
+        email=Email.from_raw("alice@example.com"),
+        hashed_password="hashed-secret",
+    ))
+
+    profile = _make_profile(linkedin_id="li_abc123")
+    use_case, _ = _make_use_case(profile=profile, repo=repo)
+
+    with pytest.raises(ConflictError) as exc_info:
+        await use_case.link_to_existing_user(
+            current_user_id=target.id,
+            code="code",
+            redirect_uri="https://cb",
+        )
+
+    assert exc_info.value.code == "linkedin_already_linked"
+
+
+@pytest.mark.asyncio
+async def test_link_to_existing_user_raises_unauthorized_on_bad_code():
+    repo = InMemoryUserRepository()
+    user = await repo.create(User(id=None, email=Email.from_raw("alice@example.com")))
+
+    use_case, _ = _make_use_case(raise_on_exchange=ValueError("expired"), repo=repo)
+
+    with pytest.raises(UnauthorizedError) as exc_info:
+        await use_case.link_to_existing_user(
+            current_user_id=user.id,
+            code="bad",
+            redirect_uri="https://cb",
+        )
+
+    assert exc_info.value.code == "linkedin_auth_failed"
 
 
 # ---------------------------------------------------------------------------

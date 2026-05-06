@@ -24,3 +24,8 @@ class LinkedInCallbackRequest(BaseModel):
 
 class LinkedInAuthUrlResponse(BaseModel):
     authorization_url: str
+
+
+class LinkedInCodeResponse(BaseModel):
+    code: str
+    redirect_uri: str

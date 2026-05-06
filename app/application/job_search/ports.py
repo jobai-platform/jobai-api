@@ -10,7 +10,7 @@ class JobScraperGateway(ABC):
     """
     Interface for job scraper adapters.
     Concrete implementations:
-    - LinkedInJobsScraperAdapter  (linkedin-jobs-scraper)
+    - LinkedInJobsScraperAdapter  (python-jobspy — LinkedIn internal API, no Selenium)
     - JobSpyAdapter               (LinkedIn + Indeed + Glassdoor + Google)
     - JobUpAdapter                (JobUp.ch — Swiss market)
     """

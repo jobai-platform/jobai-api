@@ -16,12 +16,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack-dev libcurl4-openssl-dev libffi-dev \
     libjpeg-dev zlib1g-dev libopenblas-dev git \
     vim wget curl ca-certificates tree coreutils \
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install Poetry
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install poetry
 
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 # Copy the current directory contents into the container at /app
 COPY . /app

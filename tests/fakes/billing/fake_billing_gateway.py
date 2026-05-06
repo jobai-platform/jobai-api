@@ -8,30 +8,29 @@ class FakeBillingGateway(BillingGateway):
     async def create_checkout_session(
         self,
         *,
-        _email: str,
-        _user_id: UUID,
-        _plan: str,
-        _success_url: str,
-        _cancel_url: str,
-        _attempt: int = 1,
+        email: str,
+        user_id: UUID,
+        plan: str,
+        success_url: str,
+        cancel_url: str,
     ) -> str:
         return "https://fake-checkout.stripe.com/session"
 
     async def create_customer(
         self,
         *,
-        _email: str,
-        _user_id: UUID,
+        email: str,
+        user_id: UUID,
     ) -> str:
-        return f"cus_fake_{_user_id}"
+        return f"cus_fake_{user_id}"
 
     async def create_subscription(
         self,
         *,
-        _customer_id: str,
-        _stripe_price_id: str,
+        customer_id: str,
+        stripe_price_id: str,
         user_id: UUID,
-        _plan: Plan,
+        plan: Plan,
     ) -> str:
         return f"sub_fake_{user_id}"
 
@@ -40,7 +39,7 @@ class FakeBillingGateway(BillingGateway):
 
     async def verify_and_construct_event(
         self,
-        _payload: bytes,
-        _signature: str,
+        payload: bytes,
+        signature: str,
     ) -> dict:
         return {}

@@ -42,3 +42,33 @@ class FakeJobScraperGateway(JobScraperGateway):
     async def get_job_detail(self, job_id: str) -> Optional[ScrapedJob]:
         self.detail_calls.append(job_id)
         return next((j for j in self._jobs if j.job_id == job_id), None)
+
+
+class FakeJobPostingRepository:
+    """
+    In-memory fake for JobPostingRepository.
+    Use in application-layer tests — no DB needed.
+    """
+
+    def __init__(self) -> None:
+        self._store: dict[tuple[str, str], "JobPosting"] = {}
+        self.upserted: list = []
+
+    async def upsert(self, job) -> "JobPosting":
+        key = (job.external_id, job.source)
+        self._store[key] = job
+        self.upserted.append(job)
+        return job
+
+    async def get_by_external_id(
+        self, external_id: str, source: str
+    ) -> Optional["JobPosting"]:
+        return self._store.get((external_id, source))
+
+    async def list_by_candidate(
+        self, candidate_id, limit: int = 50, offset: int = 0
+    ) -> list:
+        return list(self._store.values())[offset: offset + limit]
+
+    async def count_new_since_last_search(self, candidate_id) -> int:
+        return 0

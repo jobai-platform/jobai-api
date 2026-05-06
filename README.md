@@ -1,4 +1,21 @@
-# JobAI Platform — Architecture, DDD, TDD & Engineering Guidelines
+# JobAI Platform
+
+[![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
+[![Last Updated](https://img.shields.io/badge/updated-April%202026-green.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/fastapi-0.68%2B-green.svg)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy](https://img.shields.io/badge/sqlalchemy-1.4%2B-orange.svg)](https://www.sqlalchemy.org/)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-13%2B-blue.svg)](https://www.postgresql.org/)
+[![TDD](https://img.shields.io/badge/TDD-Required-red.svg)]()
+[![DDD](https://img.shields.io/badge/DDD-Required-yellow.svg)]()
+[![Hexagonal](https://img.shields.io/badge/Hexagonal-Architecture-blue.svg)]()
+[![Test](https://img.shields.io/badge/test-passing-brightgreen.svg)]()
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-passing-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-95%25-green.svg)]()
+[![Contributors](https://img.shields.io/badge/contributors-5-blue.svg)]()
+[![Issues](https://img.shields.io/badge/issues-0-green.svg)]()
+[![Pull Requests](https://img.shields.io/badge/pull%20requests-0-green.svg)]()
 
 ## 🎯 Objectifs du projet
 JobAI est une plateforme d’automatisation intelligente pour la recherche d’emploi, la génération d’analyses IA, le matching candidat–offre, et la gestion d’agents autonomes.

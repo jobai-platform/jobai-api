@@ -4,8 +4,10 @@ from uuid import UUID
 from app.application.auth.ports import OAuthGateway, TokenService
 from app.application.auth.use_cases import TokenPair
 from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
+from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.ports import UserRepository
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
+from app.domain.users.candidate_profile import CandidateProfile
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email, LinkedInProfile
 
@@ -27,11 +29,13 @@ class LinkedInOAuthUseCase:
         user_repo: UserRepository,
         token_service: TokenService,
         freemium_use_case: AssignFreemiumOnSignupUseCase,
+        profile_repo: CandidateProfileRepository | None = None,
     ) -> None:
         self._gateway = oauth_gateway
         self._user_repo = user_repo
         self._token_service = token_service
         self._freemium = freemium_use_case
+        self._profile_repo = profile_repo
 
     async def execute(self, *, code: str, redirect_uri: str) -> TokenPair:
         """
@@ -91,6 +95,10 @@ class LinkedInOAuthUseCase:
         )
         created = await self._user_repo.create(new_user)
         logger.info("LinkedInOAuth._resolve_user: [branch=signup] user created user_id=%s", created.id)
+
+        if self._profile_repo is not None:
+            await self._profile_repo.save(CandidateProfile(user_id=created.id))
+            logger.info("LinkedInOAuth._resolve_user: [branch=signup] empty profile created for user_id=%s", created.id)
 
         logger.info("LinkedInOAuth._resolve_user: [branch=signup] assigning freemium to user_id=%s", created.id)
         await self._freemium.execute(user_id=created.id)

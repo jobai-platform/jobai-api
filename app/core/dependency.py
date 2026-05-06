@@ -44,10 +44,27 @@ def get_user_repository(
 ) -> UserRepository:
     return SqlAlchemyUserRepository(session=session)
 
+# ---------------------------------------------------------------------------
+# Candidate Profile - factories
+# ---------------------------------------------------------------------------
+def get_candidate_profile_repository(session: DbSession) -> CandidateProfileRepository:
+    return SQLAlchemyCandidateProfileRepository(session=session)
+
+def get_candidate_profile_use_case(
+    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+) -> GetCandidateProfileUseCase:
+    return GetCandidateProfileUseCase(repo=repo)
+
+def get_upsert_candidate_profile_use_case(
+    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
+) -> UpsertCandidateProfileUseCase:
+    return UpsertCandidateProfileUseCase(repo=repo)
+
 def get_user_service(
     repo: Annotated[UserRepository, Depends(get_user_repository)],
+    profile_repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
 ) -> UserService:
-    return UserService(user_repo=repo, pwd_hasher=PasswordServiceAdapter())
+    return UserService(user_repo=repo, pwd_hasher=PasswordServiceAdapter(), profile_repo=profile_repo)
 
 # ---------------------------------------------------------------------------
 # Billing - factories
@@ -120,22 +137,6 @@ def get_search_jobs_use_case(
     )
 
 # ---------------------------------------------------------------------------
-# Candidate Profile - factories
-# ---------------------------------------------------------------------------
-def get_candidate_profile_repository(session: DbSession) -> CandidateProfileRepository:
-    return SQLAlchemyCandidateProfileRepository(session=session)
-
-def get_candidate_profile_use_case(
-    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
-) -> GetCandidateProfileUseCase:
-    return GetCandidateProfileUseCase(repo=repo)
-
-def get_upsert_candidate_profile_use_case(
-    repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
-) -> UpsertCandidateProfileUseCase:
-    return UpsertCandidateProfileUseCase(repo=repo)
-
-# ---------------------------------------------------------------------------
 # LinkedIn OAuth — factories
 # ---------------------------------------------------------------------------
 def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
@@ -147,12 +148,14 @@ def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
 def get_linkedin_oauth_use_case(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
     freemium: Annotated[AssignFreemiumOnSignupUseCase, Depends(get_assign_freemium_on_signup_use_case)],
+    profile_repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
 ) -> LinkedInOAuthUseCase:
     return LinkedInOAuthUseCase(
         oauth_gateway=get_linkedin_oauth_adapter(),
         user_repo=user_repo,
         token_service=JWTTokenServiceAdapter(),
         freemium_use_case=freemium,
+        profile_repo=profile_repo,
     )
 
 

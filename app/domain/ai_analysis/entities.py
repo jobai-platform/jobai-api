@@ -5,14 +5,8 @@ from uuid import UUID
 from app.domain.ai_analysis.enums import AnalysisStatus, AnalysisQualityTier
 from app.domain.ai_analysis.value_objects import MatchScore
 
-@dataclass
+@dataclass(slots=True)
 class AIAnalysis:
-    """
-    Aggregate root for an AI analysis job
-
-    Represents a single matching analysis between a candidate profile
-    and a job posting. Manages status transitions and enforces invariants.
-    """
     id: UUID
     candidate_id: UUID
     job_posting_id: UUID
@@ -25,7 +19,6 @@ class AIAnalysis:
     failure_reason: str | None = None
 
     def start_processing(self) -> None:
-        """Transition from PENDING → PROCESSING"""
         if self.status != AnalysisStatus.PENDING:
             raise ValueError(
                 f"Cannot start processing from {self.status.name}. "
@@ -34,7 +27,6 @@ class AIAnalysis:
         self.status = AnalysisStatus.PROCESSING
 
     def complete(self, score: MatchScore) -> None:
-        """Transition from PROCESSING → COMPLETED with result"""
         if self.status != AnalysisStatus.PROCESSING:
             raise ValueError(
                 f"Cannot complete from {self.status.name}. "
@@ -45,7 +37,6 @@ class AIAnalysis:
         self.completed_at = datetime.now(UTC)
 
     def fail(self, reason: str) -> None:
-        """Transition from PROCESSING → FAILED with reason"""
         if self.status != AnalysisStatus.PROCESSING:
             raise ValueError(
                 f"Cannot fail from {self.status.name}. "

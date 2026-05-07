@@ -118,6 +118,7 @@ def test_fail_analysis_with_reason():
 
     assert analysis.status == AnalysisStatus.FAILED
     assert "timeout" in analysis.failure_reason.lower()
+    assert analysis.completed_at is not None
 
 
 def test_fail_analysis_from_pending_fails():

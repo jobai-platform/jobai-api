@@ -44,7 +44,7 @@ class BillingPriceSQLAlchemyRepository(BillingPriceRepository):
                 active=price.active,
             )
             .on_conflict_do_update(
-                constraint="uq_billing_price_stripe_id",
+                index_elements=["stripe_price_id"],
                 set_={
                     "plan": price.plan.value,
                     "stripe_product_id": price.stripe_product_id,

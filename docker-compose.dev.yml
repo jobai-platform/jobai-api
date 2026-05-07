@@ -22,27 +22,35 @@ services:
     command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload --log-level debug
     restart: always
     depends_on:
-      - db
-      - minio
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
     networks:
       - backend
       - postgres
 
   db:
-    image: postgres:17.2-alpine
+    image: timescale/timescaledb-ha:pg16
     restart: unless-stopped
-    container_name: postgres-container-dev
+    container_name: timescaledb-container-dev
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: jobai_db
-      PG_DATA: /data/postgres
+      TIMESCALEDB_TELEMETRY: "off"
     ports:
       - ${POSTGRES_PORT:-5432}:5432
     networks:
       - postgres
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - timescale-data:/var/lib/postgresql/data
+      - ./scripts/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jobai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio:latest
@@ -67,13 +75,12 @@ services:
       PGADMIN_DEFAULT_EMAIL: test@gmail.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-        - ${PGADMIN_PORT:-8080}:80
-        - ${PGADMIN_PORT_SSL:-8443}:443
-        - ${PGADMIN_PORT_SSH:-2222}:22
+      - ${PGADMIN_PORT:-8080}:80
+      - ${PGADMIN_PORT_SSL:-8443}:443
+      - ${PGADMIN_PORT_SSH:-2222}:22
     depends_on:
-        - db
-        - app
-
+      - db
+      - app
 
 networks:
   backend:
@@ -82,5 +89,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
+  timescale-data:
   minio-data:

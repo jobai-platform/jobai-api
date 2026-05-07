@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, DateTime, Integer, String, func, UniqueConstraint
+import uuid
+
+from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -8,15 +10,12 @@ from app.infrastructure.config.database import Base
 
 class BillingPriceModel(Base):
     __tablename__ = "billing_prices"
-    __table_args__ = (
-        UniqueConstraint("stripe_price_id", name="uq_billing_price_stripe_id"),
-        {"schema": DB_SCHEMA}
-    )
+    __table_args__ = {"schema": DB_SCHEMA}
 
-    id: Mapped[str] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     plan: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     stripe_price_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)

@@ -1,0 +1,79 @@
+# Line length and indentation settings
+line-length = 100
+indent-width = 4
+
+# Assume Python 3.12
+target-version = "py312"
+
+# Exclude a variety of commonly ignored directories
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[lint]
+# Enable more comprehensive rule sets
+# E: pycodestyle errors
+# F: pyflakes
+# W: pycodestyle warnings
+# I: isort (import sorting)
+# B: flake8-bugbear (bug detection)
+# C4: flake8-comprehensions (list/dict/set comprehension improvements)
+# UP: pyupgrade (syntax improvements)
+# N: PEP8-naming conventions
+# ANN: type annotations
+select = ["E", "F", "W", "I", "B", "C4", "UP", "N"]
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Allow autofix for all enabled rules (when `--fix`) is provided
+fixable = ["ALL"]
+unfixable = []
+
+# Pytest-specific settings
+[lint.per-file-ignores]
+"tests/**/*.py" = [
+    "E501",  # Line too long
+    "F811",  # Redefinition of unused name (common in pytest with fixtures)
+    "F401",  # Imported but unused (common in pytest with fixtures)
+    "F841"   # Local variable is assigned to but never used
+]
+"**/*schemas.py" = [
+    "N805",  # First parameter of a method should be named 'self' (for Pydantic validators)
+    "B008",  # Do not perform function call in argument defaults (FastAPI Form pattern)
+]
+
+# Configure isort rules
+[lint.isort]
+case-sensitive = true
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["src"]  # Add your project's main package name(s) here
+
+# Format settings
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true

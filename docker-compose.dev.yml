@@ -26,6 +26,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      ollama:
+        condition: service_healthy
     networks:
       - backend
       - postgres
@@ -68,6 +70,23 @@ services:
       - backend
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-container-dev
+    ports:
+      - ${OLLAMA_PORT:-11434}:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
   postgres-admin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin-container-dev
@@ -91,3 +110,4 @@ networks:
 volumes:
   timescale-data:
   minio-data:
+  ollama-data:

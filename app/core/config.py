@@ -59,6 +59,11 @@ class Settings:
   OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
   OPENAI_LLM_MODEL: str = os.getenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
 
+  # Langfuse — LLM observability (self-hosted via docker-compose)
+  LANGFUSE_SECRET_KEY: str | None = os.getenv("LANGFUSE_SECRET_KEY") or None
+  LANGFUSE_PUBLIC_KEY: str | None = os.getenv("LANGFUSE_PUBLIC_KEY") or None
+  LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST", "http://langfuse:3000")
+
   class Config:
       env_file = ".env"
       case_sensitive = True

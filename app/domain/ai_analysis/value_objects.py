@@ -38,7 +38,7 @@ class ProviderConfig:
     llm_provider: str
     ollama_base_url: str = "http://localhost:11434"
     ollama_embedding_model: str = "nomic-embed-text"
-    ollama_llm_model: str = "llama3"
+    ollama_llm_model: str = "mistral:7b"
     openai_api_key: str | None = None
 
 

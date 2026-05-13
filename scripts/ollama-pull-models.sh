@@ -42,10 +42,11 @@ pull_model() {
     echo "✓ Model '${model}' already present — skipping."
   else
     echo "→ Pulling model '${model}'..."
-    local pull_output
-    pull_output=$(curl -sf "${OLLAMA_BASE_URL}/api/pull" \
-      -d "{\"name\":\"${model}\"}")
-    echo "${pull_output}" | grep -E '"status"' || true
+    curl -sf --max-time 1800 \
+      -H "Content-Type: application/json" \
+      "${OLLAMA_BASE_URL}/api/pull" \
+      -d "{\"name\":\"${model}\"}" \
+      | grep -E '"status"' || true
     echo "✓ Model '${model}' pulled."
   fi
 }

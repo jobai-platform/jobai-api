@@ -54,6 +54,11 @@ class Settings:
   OLLAMA_LLM_MODEL: str = os.getenv("OLLAMA_LLM_MODEL", "mistral:7b")
   OLLAMA_TIMEOUT: float = float(os.getenv("OLLAMA_TIMEOUT", "120.0"))
 
+  # OpenAI — optional, only required when EMBEDDING_PROVIDER or LLM_PROVIDER is "openai"
+  OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY") or None
+  OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+  OPENAI_LLM_MODEL: str = os.getenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
+
   class Config:
       env_file = ".env"
       case_sensitive = True

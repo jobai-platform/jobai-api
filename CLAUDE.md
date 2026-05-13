@@ -45,10 +45,10 @@ poetry run mypy .
 
 ```bash
 # Start all services including Ollama
-docker compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.dev.yml up -d
 
-# Wait for Ollama to be healthy (~30s)
-docker compose -f docker-compose.dev.yml ps
+# Wait for Ollama to be ready (~30s)
+docker-compose -f docker-compose.dev.yml ps
 
 # Download required models (one time, ~4.4 GB)
 ./scripts/ollama-pull-models.sh

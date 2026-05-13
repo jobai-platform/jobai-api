@@ -30,6 +30,16 @@ from app.application.users.cv_use_cases import DeleteCVUseCase, UploadCVUseCase
 from app.application.users.ports import UserRepository
 from app.application.users.use_cases import UserService
 from app.core.config import settings
+from app.application.ai_analysis.use_cases import (
+    AnalyzeJobDescriptionUseCase,
+    GenerateEmbeddingsUseCase,
+    GenerateLLMCompletionUseCase,
+)
+from app.domain.ai_analysis.ports import EmbeddingPort, LLMGatewayPort
+from app.domain.ai_analysis.services.model_router import ModelRouter
+from app.domain.ai_analysis.value_objects import ProviderConfig
+from app.infrastructure.ai.ollama_embedding_adapter import OllamaEmbeddingAdapter
+from app.infrastructure.ai.ollama_llm_gateway import OllamaLLMGateway
 from app.infrastructure.billing.stripe_gateway import StripeGateway
 from app.infrastructure.config.database import get_async_session
 from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsScraperAdapter
@@ -215,6 +225,50 @@ def get_linkedin_oauth_use_case(
         freemium_use_case=freemium,
         profile_repo=profile_repo,
     )
+# ---------------------------------------------------------------------------
+# AI Analysis — composition root
+# ---------------------------------------------------------------------------
+def get_model_router() -> ModelRouter:
+    config = ProviderConfig(
+        embedding_provider=settings.EMBEDDING_PROVIDER,
+        llm_provider=settings.LLM_PROVIDER,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        ollama_embedding_model=settings.OLLAMA_EMBEDDING_MODEL,
+        ollama_llm_model=settings.OLLAMA_LLM_MODEL,
+        openai_api_key=settings.OPENAI_API_KEY,
+    )
+
+    providers: dict[str, EmbeddingPort | LLMGatewayPort] = {
+        "embedding_ollama": OllamaEmbeddingAdapter(
+            base_url=config.ollama_base_url,
+            model=config.ollama_embedding_model,
+        ),
+        "llm_ollama": OllamaLLMGateway(
+            base_url=config.ollama_base_url,
+            model=config.ollama_llm_model,
+            timeout=settings.OLLAMA_TIMEOUT,
+        ),
+    }
+
+    return ModelRouter(config=config, providers=providers)
+
+
+def get_generate_embeddings_use_case(
+    router: Annotated[ModelRouter, Depends(get_model_router)],
+) -> GenerateEmbeddingsUseCase:
+    return GenerateEmbeddingsUseCase(router=router)
+
+
+def get_generate_llm_completion_use_case(
+    router: Annotated[ModelRouter, Depends(get_model_router)],
+) -> GenerateLLMCompletionUseCase:
+    return GenerateLLMCompletionUseCase(router=router)
+
+
+def get_analyze_job_description_use_case(
+    router: Annotated[ModelRouter, Depends(get_model_router)],
+) -> AnalyzeJobDescriptionUseCase:
+    return AnalyzeJobDescriptionUseCase(router=router)
 
 
 # ---------------------------------------------------------------------------
@@ -239,4 +293,8 @@ GetCandidateProfileDep = Annotated[GetCandidateProfileUseCase, Depends(get_candi
 UpsertCandidateProfileDep = Annotated[UpsertCandidateProfileUseCase, Depends(get_upsert_candidate_profile_use_case)]
 UploadCVDep = Annotated[UploadCVUseCase, Depends(get_upload_cv_use_case)]
 DeleteCVDep = Annotated[DeleteCVUseCase, Depends(get_delete_cv_use_case)]
+ModelRouterDep = Annotated[ModelRouter, Depends(get_model_router)]
+GenerateEmbeddingsDep = Annotated[GenerateEmbeddingsUseCase, Depends(get_generate_embeddings_use_case)]
+GenerateLLMCompletionDep = Annotated[GenerateLLMCompletionUseCase, Depends(get_generate_llm_completion_use_case)]
+AnalyzeJobDescriptionDep = Annotated[AnalyzeJobDescriptionUseCase, Depends(get_analyze_job_description_use_case)]
 

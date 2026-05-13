@@ -82,6 +82,8 @@ async def profile_extractor_node(state: PipelineState, llm: BaseLLM) -> dict:
 
 
 async def job_extractor_node(state: PipelineState, llm: BaseLLM) -> dict:
+    if state.get("error"):
+        return {}
     text = state.get("_job_text", "")
     if not text:
         return {"error": "job_extractor: no job text provided", "structured_job": None}
@@ -101,6 +103,8 @@ async def semantic_retriever_node(
     embedding_port: EmbeddingPort,
     vector_store: VectorStorePort,
 ) -> dict:
+    if state.get("error"):
+        return {}
     profile = state.get("structured_profile")
     if not profile:
         return {"error": "semantic_retriever: no structured_profile available"}
@@ -122,6 +126,8 @@ async def semantic_retriever_node(
 
 
 async def scorer_node(state: PipelineState, llm: BaseLLM) -> dict:
+    if state.get("error"):
+        return {}
     profile = state.get("structured_profile", {})
     job = state.get("structured_job", {})
     context = state.get("context_jobs", [])
@@ -145,6 +151,8 @@ async def scorer_node(state: PipelineState, llm: BaseLLM) -> dict:
 
 
 async def reporter_node(state: PipelineState, llm: BaseLLM) -> dict:
+    if state.get("error"):
+        return {}
     raw = state.get("raw_scores", {}) or {}
     profile = state.get("structured_profile", {})
     job = state.get("structured_job", {})

@@ -17,6 +17,9 @@ class PipelineState(TypedDict):
     match_score: MatchScore | None
     retry_count: int
     error: str | None
+    _candidate_text: str
+    _job_text: str
+    _prev_retry_count: int
 
 
 def make_initial_state(
@@ -24,6 +27,8 @@ def make_initial_state(
     job_posting_id: UUID,
     tier: AnalysisQualityTier,
     analysis_id: UUID,
+    candidate_text: str = "",
+    job_text: str = "",
 ) -> PipelineState:
     return PipelineState(
         candidate_id=candidate_id,
@@ -37,4 +42,7 @@ def make_initial_state(
         match_score=None,
         retry_count=0,
         error=None,
+        _candidate_text=candidate_text,
+        _job_text=job_text,
+        _prev_retry_count=0,
     )

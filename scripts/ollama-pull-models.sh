@@ -18,7 +18,7 @@ echo "→ Ollama base URL: ${OLLAMA_BASE_URL}"
 
 wait_for_ollama() {
   echo "→ Waiting for Ollama to be ready..."
-  for i in $(seq 1 30); do
+  for (( i = 1; i <= 30; i++ )); do
     if curl -sf "${OLLAMA_BASE_URL}/api/tags" > /dev/null 2>&1; then
       echo "✓ Ollama is ready."
       return 0
@@ -33,7 +33,7 @@ wait_for_ollama() {
 is_model_present() {
   local model="$1"
   curl -sf "${OLLAMA_BASE_URL}/api/tags" \
-    | grep -q "\"name\":\"${model}" 2>/dev/null
+    | grep -q "\"name\":\"${model}\""
 }
 
 pull_model() {
@@ -42,9 +42,10 @@ pull_model() {
     echo "✓ Model '${model}' already present — skipping."
   else
     echo "→ Pulling model '${model}'..."
-    curl -sf "${OLLAMA_BASE_URL}/api/pull" \
-      -d "{\"name\":\"${model}\"}" \
-      | grep -E '"status"' || true
+    local pull_output
+    pull_output=$(curl -sf "${OLLAMA_BASE_URL}/api/pull" \
+      -d "{\"name\":\"${model}\"}")
+    echo "${pull_output}" | grep -E '"status"' || true
     echo "✓ Model '${model}' pulled."
   fi
 }

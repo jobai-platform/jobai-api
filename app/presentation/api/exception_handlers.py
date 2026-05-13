@@ -73,8 +73,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ValidationError)
     async def handle_validation_error(_: Request, exc: ValidationError):
-        # Avoid deprecated constant warning by using the newer one:
-        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=_payload_from_app_error(exc))
+        return JSONResponse(status_code=422, content=_payload_from_app_error(exc))
 
     # -------------------------
     # FastAPI/Pydantic validation
@@ -82,7 +81,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def handle_request_validation_error(_: Request, exc: RequestValidationError):
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             content=_payload_error_response(
                 code="validation_error",
                 detail="Request validation failed",

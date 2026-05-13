@@ -76,6 +76,10 @@ markers = [
     "integration: tests requiring external services (database, network, etc.)",
     "e2e: mark test as end-to-end test",
 ]
+addopts = "-m 'not integration'"
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette",
+]
 
 [build-system]
 requires = ["poetry-core"]

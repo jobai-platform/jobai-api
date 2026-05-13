@@ -44,7 +44,6 @@ async def seeded_candidate_and_job(db_session):
     return candidate.id, job.id
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_save_and_find_by_id(db_session, seeded_candidate_and_job):
     """GIVEN a new AIAnalysis entity
@@ -73,7 +72,6 @@ async def test_save_and_find_by_id(db_session, seeded_candidate_and_job):
     assert retrieved.status == AnalysisStatus.PENDING
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_find_by_candidate_and_job(db_session, seeded_candidate_and_job):
     """GIVEN an analysis saved for candidate/job pair

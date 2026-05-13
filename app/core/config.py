@@ -42,5 +42,39 @@ class Settings:
   S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
   S3_PUBLIC_BASE_URL: str = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
 
+  # ==========================================
+  # AI PROVIDERS CONFIGURATION
+  # ==========================================
+  EMBEDDING_PROVIDER: str = "ollama"  # "ollama" or "openai"
+  LLM_PROVIDER: str = "ollama"  # "ollama" or "openai"
 
-settings = Settings()
+  # Ollama Configuration
+  OLLAMA_BASE_URL: str = "http://localhost:11434"
+  OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+  OLLAMA_LLM_MODEL: str = "llama3"  # or "mistral", "qwen2.5", etc.
+  OLLAMA_TIMEOUT: float = 120.0  # secondes
+
+  # OpenAI Configuration (option)
+  OPENAI_API_KEY: str | None = None
+  OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+  OPENAI_LLM_MODEL: str = "gpt-4o-mini"
+
+  class Config:
+      env_file = ".env"
+      case_sensitive = True
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Returns the Settings singleton. Prefer this in new code."""
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
+
+
+# Module-level singleton kept for backward compatibility with existing imports:
+#   from app.core.config import settings
+settings = get_settings()

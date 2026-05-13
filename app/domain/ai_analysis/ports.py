@@ -13,4 +13,5 @@ class LLMGatewayPort(Protocol):
         prompt: str,
         max_tokens: int = 500,
         temperature: float = 0.7,
+        system_prompt: str | None = None,
     ) -> str: ...

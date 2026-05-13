@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.constants.general import DB_SCHEMA
 from app.infrastructure.config.database import Base
 
 
@@ -26,6 +27,7 @@ class JobPostingModel(Base):
         ),
         Index("ix_job_postings_source", "source"),
         Index("ix_job_postings_posted_at", "posted_at"),
+        {"schema": DB_SCHEMA},
     )
 
     def __repr__(self) -> str:

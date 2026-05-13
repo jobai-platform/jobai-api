@@ -8,5 +8,5 @@ __all__ = [
     "BillingPriceModel",
     "JobPostingModel",
     "SubscriptionModel",
-    "UserModel"
+    "UserModel",
 ]

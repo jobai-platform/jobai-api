@@ -4,9 +4,15 @@ import json
 import logging
 from uuid import UUID, uuid4
 
-from app.application.ai_analysis.ports import AIAnalysisPipelinePort, AIAnalysisRepository
+from app.application.ai_analysis.ports import (
+    AIAnalysisPipelinePort,
+    AIAnalysisRepository,
+    VectorStorePort,
+)
+from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.domain.ai_analysis.entities import AIAnalysis
 from app.domain.ai_analysis.enums import AnalysisQualityTier, AnalysisStatus
+from app.domain.ai_analysis.ports import EmbeddingPort
 from app.domain.ai_analysis.services.model_router import ModelRouter
 from app.domain.common.exceptions import NotFoundError
 
@@ -161,3 +167,42 @@ class ComputeMatchScoreUseCase:
 
         await self._repo.save(analysis)
         return analysis
+
+
+class IndexCandidateProfileUseCase:
+    """Fetches a CandidateProfile, generates its embedding, and upserts it to the vector store."""
+
+    def __init__(
+        self,
+        profile_repo: CandidateProfileRepository,
+        embedding: EmbeddingPort,
+        vector_store: VectorStorePort,
+    ) -> None:
+        self._profile_repo = profile_repo
+        self._embedding = embedding
+        self._vector_store = vector_store
+
+    async def execute(self, user_id: UUID) -> None:
+        profile = await self._profile_repo.get_by_user_id(user_id)
+        if profile is None:
+            raise NotFoundError(
+                code="candidate_profile_not_found",
+                details=f"CandidateProfile {user_id} not found.",
+            )
+
+        parts = []
+        if profile.current_title:
+            parts.append(profile.current_title)
+        if profile.skills:
+            parts.append(" ".join(profile.skills))
+        if profile.bio:
+            parts.append(profile.bio)
+        profile_text = " ".join(parts)
+
+        vector = await self._embedding.generate_embedding(profile_text)
+        metadata = {
+            "title": profile.current_title,
+            "skills": profile.skills,
+            "years_of_experience": profile.years_of_experience,
+        }
+        await self._vector_store.upsert_candidate(user_id, vector, metadata)

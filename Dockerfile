@@ -1,42 +1,53 @@
-FROM python:3.13-slim AS base
+FROM python:3.13-slim AS runtime
 
-# Set environment variables
-# The PYTHONDONTWRITEBYTECODE need to load by the.env file
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ARG POETRY_VERSION=2.1.4
 
-# Set the working directory
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    PORT=5001
+
 WORKDIR /app
 
-# Install dependencies
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ musl-dev \
-    libhdf5-dev libc6-dev libssl-dev libblas-dev \
-    liblapack-dev libcurl4-openssl-dev libffi-dev \
-    libjpeg-dev zlib1g-dev libopenblas-dev git \
-    vim wget curl ca-certificates tree coreutils \
+    ca-certificates \
+    coreutils \
+    curl \
+    gcc \
+    g++ \
+    git \
+    libblas-dev \
+    libc6-dev \
+    libcurl4-openssl-dev \
+    libffi-dev \
+    libhdf5-dev \
+    libjpeg-dev \
+    liblapack-dev \
+    libopenblas-dev \
+    libssl-dev \
+    musl-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install Poetry
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install poetry
+RUN pip install --upgrade pip \
+    && pip install "poetry==${POETRY_VERSION}"
 
-# Copy the current directory contents into the container at /app
+COPY pyproject.toml poetry.lock /app/
+RUN poetry install --no-ansi --no-root
+
 COPY . /app
 
-# Configure Poetry to install dependencies directly into the global environment
-RUN poetry config virtualenvs.create false
+RUN addgroup --system app \
+    && adduser --system --ingroup app app \
+    && chown -R app:app /app
 
-# Install project dependencies
-RUN poetry install --no-interaction --no-ansi --no-root
+USER app
 
-
-# Install any needed packages specified in poetry.lock
-#RUN pip install --upgrade pip \
-#    && pip install --no-cache-dir poetry \
-#    && poetry config virtualenvs.create false \
-#    && poetry install --no-interaction --no-ansi
-
-# Expose the port the app runs on
 EXPOSE 5001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5001"]

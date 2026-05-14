@@ -1,10 +1,20 @@
 # Git files
 .git
 .gitignore
+.github/
 
 # Docker files
 Dockerfile
-docker-compose-dev.yml
+docker-compose*.yml
+.dockerignore
+
+# Local and secret configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
 
 # Documentation files
 *.md
@@ -146,3 +156,14 @@ cython_debug/
 
 # PyCharm
 .idea/
+
+# Local OS files
+.DS_Store
+
+# AI agent local files
+.copilot/
+.codex/
+.claude/
+AGENTS.md
+CLAUDE.md
+SKILL.md

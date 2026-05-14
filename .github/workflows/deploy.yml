@@ -6,10 +6,16 @@ on:
     types: [completed]
     branches: ["main"]
 
+concurrency:
+  group: production-backend
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,18 +28,27 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script_stop: true
           script: |
-            set -e
+            set -euo pipefail
             mkdir -p ~/jobai-backend
             cd ~/jobai-backend
-            # inject compose + env
+
+            if [ -f docker-compose.prod.yml ]; then
+              cp docker-compose.prod.yml docker-compose.prod.yml.previous
+            fi
+            if [ -f .env ]; then
+              cp .env .env.previous
+            fi
+
             cat > docker-compose.prod.yml <<'YML'
-            ${COMPOSE_PROD}
+            ${{ secrets.COMPOSE_PROD }}
             YML
             cat > .env <<'ENVVARS'
-            ${ENV_PROD}
+            ${{ secrets.ENV_PROD }}
             ENVVARS
-            # login GHCR (PAT conseillé ou GITHUB_TOKEN scope packages)
-            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            printf '%s' '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml run --rm app poetry run alembic upgrade head
             docker compose -f docker-compose.prod.yml up -d
-            bash -lc "./scripts/smoke.sh || true"
+            docker compose -f docker-compose.prod.yml ps
+            curl -fsS "${SMOKE_BASE_URL:-http://127.0.0.1:5001}/health"

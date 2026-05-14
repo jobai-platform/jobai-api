@@ -1,5 +1,6 @@
 .idea
 .env
+.DS_Store
 
 # AI agent local files
 .copilot

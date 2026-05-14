@@ -224,27 +224,28 @@ main passé → deploy.yml
               └── scripts/smoke.sh (optionnel)
 ```
 
-### 4.2 Bug à corriger avant la prod
+### 4.2 Garanties CI/CD actives
 
-Dans `.github/workflows/backend-ci.yml`, ligne de condition pour le push Docker :
+Le pipeline CI/CD applique maintenant ces garanties minimales :
 
-```yaml
-# ❌ Actuellement (typo — ne fonctionnera jamais)
-if: github.ref == 'refs/haeads/main'
+- PostgreSQL CI utilise `pgvector/pgvector:pg16`, donc l'extension `vector` est disponible pendant les tests.
+- `poetry run pytest -q` passe avant tout build Docker.
+- L'image Docker est construite sur les PRs pour détecter les erreurs de packaging avant merge.
+- Les images GHCR `sha-<hash>` et `latest` sont poussées uniquement depuis `main`.
+- Les déploiements production sont sérialisés avec `concurrency`.
+- Le déploiement exécute `poetry run alembic upgrade head` avant `docker compose up -d`.
+- Le déploiement exécute `scripts/smoke.sh` et échoue si `/health` ne répond pas.
 
-# ✅ Corriger en
-if: github.ref == 'refs/heads/main'
+### 4.3 Jenkins optionnel
+
+`Jenkinsfile` fournit un pipeline miroir pour les environnements qui exigent Jenkins :
+
+```
+Prepare PostgreSQL pgvector → poetry install → poetry run pytest -q → docker build
 ```
 
-### 4.3 Étape de migration manquante
-
-Le `deploy.yml` actuel ne lance **pas** les migrations Alembic. Ajouter cette étape avant `docker compose up -d` :
-
-```bash
-# Lancer les migrations avant de démarrer l'app
-docker compose -f docker-compose.prod.yml run --rm app \
-  poetry run alembic upgrade head
-```
+GitHub Actions reste la source de vérité. Jenkins ne doit être activé que si l'équipe veut un runner self-hosted ou une
+intégration avec une chaîne de déploiement existante.
 
 ---
 

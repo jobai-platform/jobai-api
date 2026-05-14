@@ -35,9 +35,20 @@ class GenerateLLMCompletionUseCase:
     def __init__(self, router: ModelRouter) -> None:
         self._router = router
 
-    async def execute(self, prompt: str, **kwargs: object) -> str:
+    async def execute(
+        self,
+        prompt: str,
+        max_tokens: int = 500,
+        temperature: float = 0.7,
+        system_prompt: str | None = None,
+    ) -> str:
         port = self._router.get_llm_port()
-        return await port.complete(prompt, **kwargs)
+        return await port.complete(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system_prompt=system_prompt,
+        )
 
 
 class AnalyzeJobDescriptionUseCase:
@@ -80,10 +91,17 @@ class AnalyzeJobDescriptionUseCase:
         )
 
         # Strip markdown code fences if the LLM wraps JSON in ```json ... ```
-        clean = response.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        clean = (
+            response.strip()
+            .removeprefix("```json")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
+        )
 
         try:
-            return json.loads(clean)  # json.loads() parses a str — not json.load() which needs a file
+            # json.loads() parses a str — not json.load() which needs a file
+            return json.loads(clean)
         except json.JSONDecodeError:
             logger.error("LLM did not return valid JSON, falling back to raw: %s", response[:200])
             return {"raw_analysis": response}

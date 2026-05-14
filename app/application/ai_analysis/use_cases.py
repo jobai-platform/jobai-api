@@ -141,6 +141,7 @@ class ComputeMatchScoreUseCase:
                 created_at=datetime.now(UTC),
                 completed_at=None,
             )
+            await self._repo.save(analysis)
 
         analysis.start_processing()
         await self._repo.save(analysis)

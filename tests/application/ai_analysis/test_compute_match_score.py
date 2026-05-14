@@ -75,6 +75,23 @@ async def test_returns_in_progress_analysis_without_running_pipeline():
 
 
 @pytest.mark.asyncio
+async def test_returns_pending_analysis_without_running_pipeline():
+    repo = InMemoryAIAnalysisRepository()
+    pipeline = FakeAIPipelinePort()
+    candidate_id, job_id = uuid4(), uuid4()
+    pending = _make_analysis(AnalysisStatus.PENDING, candidate_id, job_id)
+    await repo.save(pending)
+
+    use_case = ComputeMatchScoreUseCase(repo=repo, pipeline=pipeline)
+    result = await use_case.execute(
+        ComputeMatchScoreCommand(candidate_id=candidate_id, job_posting_id=job_id)
+    )
+
+    assert result.status == AnalysisStatus.PENDING
+    assert len(pipeline.calls) == 0
+
+
+@pytest.mark.asyncio
 async def test_creates_new_analysis_and_runs_pipeline_when_no_existing():
     repo = InMemoryAIAnalysisRepository()
     pipeline = FakeAIPipelinePort()

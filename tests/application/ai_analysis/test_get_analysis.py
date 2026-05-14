@@ -42,5 +42,5 @@ async def test_get_analysis_raises_not_found_when_missing():
     repo = InMemoryAIAnalysisRepository()
     use_case = GetAnalysisUseCase(repo=repo)
 
-    with pytest.raises(NotFoundError):
+    with pytest.raises(NotFoundError, match="AIAnalysis"):
         await use_case.execute(analysis_id=uuid4())

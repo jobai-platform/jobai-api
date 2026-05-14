@@ -1,0 +1,38 @@
+name: Branch Policy
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-source-branch:
+    name: Validate source branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR source branch
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          echo "PR: ${HEAD} → ${BASE}"
+
+          if [ "${BASE}" = "develop" ]; then
+            if echo "${HEAD}" | grep -qE '^(feature|hotfix|release|bugfix|refactor)/.+'; then
+              echo "✓ Allowed: ${HEAD} → develop"
+            else
+              echo "✗ Rejected: only feature/**, hotfix/**, release/**, bugfix/**, refactor/** can target develop (got '${HEAD}')"
+              exit 1
+            fi
+          fi
+
+          if [ "${BASE}" = "main" ]; then
+            if [ "${HEAD}" = "develop" ]; then
+              echo "✓ Allowed: develop → main"
+            else
+              echo "✗ Rejected: only develop can target main (got '${HEAD}')"
+              exit 1
+            fi
+          fi

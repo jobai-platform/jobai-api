@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import json
 import logging
@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from app.application.ai_analysis.ports import (
     AIAnalysisPipelinePort,
     AIAnalysisRepository,
+    SimilarityResult,
     VectorStorePort,
 )
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
@@ -206,3 +207,54 @@ class IndexCandidateProfileUseCase:
             "years_of_experience": profile.years_of_experience,
         }
         await self._vector_store.upsert_candidate(user_id, vector, metadata)
+
+
+@dataclass(frozen=True, slots=True)
+class IndexJobPostingCommand:
+    job_posting_id: UUID
+    description: str
+    metadata: dict = field(default_factory=dict)
+
+
+class IndexJobPostingUseCase:
+    """Generates an embedding for the given job description and upserts it to the vector store."""
+
+    def __init__(
+        self,
+        embedding: EmbeddingPort,
+        vector_store: VectorStorePort,
+    ) -> None:
+        self._embedding = embedding
+        self._vector_store = vector_store
+
+    async def execute(self, command: IndexJobPostingCommand) -> None:
+        if not command.description or not command.description.strip():
+            raise ValueError("description cannot be empty")
+        vector = await self._embedding.generate_embedding(command.description)
+        await self._vector_store.upsert_job(command.job_posting_id, vector, command.metadata)
+
+
+class GetCandidateJobMatchesUseCase:
+    """Returns the top-K most similar jobs for a candidate using their existing vector embedding."""
+
+    def __init__(self, vector_store: VectorStorePort) -> None:
+        self._vector_store = vector_store
+
+    async def execute(
+        self,
+        candidate_id: UUID,
+        top_k: int = 10,
+    ) -> list[SimilarityResult]:
+        candidate_embedding = await self._vector_store.get_candidate(candidate_id)
+        if candidate_embedding is None:
+            raise NotFoundError(
+                code="candidate_embedding_not_found",
+                details=(
+                    f"Candidate {candidate_id} has no indexed embedding. "
+                    "Call IndexCandidateProfileUseCase first."
+                ),
+            )
+        return await self._vector_store.search_similar_jobs(
+            query_vector=candidate_embedding.vector,
+            top_k=top_k,
+        )

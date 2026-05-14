@@ -46,3 +46,12 @@ class AIAnalysis:
         self.failure_reason = reason
         self.completed_at = datetime.now(UTC)
 
+    def reset_for_retry(self) -> None:
+        if self.status != AnalysisStatus.FAILED:
+            raise ValueError(
+                f"Cannot retry from {self.status.name}. Expected status: {AnalysisStatus.FAILED.name}"
+            )
+        self.status = AnalysisStatus.PENDING
+        self.failure_reason = None
+        self.completed_at = None
+

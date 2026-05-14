@@ -71,3 +71,4 @@ async def test_index_candidate_profile_stores_metadata():
     stored = await vector_store.get_candidate(user_id)
     assert stored.metadata["skills"] == ["python", "fastapi", "postgresql"]
     assert stored.metadata["title"] == "Senior Python Developer"
+    assert "years_of_experience" in stored.metadata

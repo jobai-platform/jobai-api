@@ -1,9 +1,10 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import uuid4
+
 import pytest
 
 from app.domain.ai_analysis.entities import AIAnalysis
-from app.domain.ai_analysis.enums import AnalysisStatus, AnalysisQualityTier
+from app.domain.ai_analysis.enums import AnalysisQualityTier, AnalysisStatus
 from app.domain.ai_analysis.value_objects import MatchScore
 
 
@@ -158,6 +159,7 @@ def test_reset_for_retry_from_failed_sets_status_to_pending():
     # manually set to FAILED state
     analysis.status = AnalysisStatus.FAILED
     analysis.failure_reason = "timeout"
+    analysis.completed_at = datetime.now(UTC)  # make assertion load-bearing
 
     analysis.reset_for_retry()
 

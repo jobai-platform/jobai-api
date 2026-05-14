@@ -1,8 +1,14 @@
 .idea
 .env
+.DS_Store
+
+# AI agent local files
 .copilot
+.codex
 .claude/*
+AGENTS.md
 CLAUDE.md
+SKILL.md
 
 __pycache__/
 *.pyc

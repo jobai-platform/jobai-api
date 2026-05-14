@@ -1,8 +1,7 @@
 import logging
-from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,11 +31,12 @@ def _to_domain(model: JobPostingModel) -> JobPosting:
         salary_min=model.salary_min,
         salary_max=model.salary_max,
         salary_currency=model.salary_currency,
-        skills=tuple(model.skills_raw.split(",")) if model.skills_raw else tuple(),
+        skills=tuple(model.skills_raw.split(",")) if model.skills_raw else (),
         created_at=model.created_at,
     )
 
-def _skills_to_raw(skills: tuple[str, ...]) -> Optional[str]:
+
+def _skills_to_raw(skills: list[str]) -> str | None:
     return ",".join(skills) if skills else None
 
 
@@ -47,11 +47,12 @@ class JobPostingSQLAlchemyRepository(JobPostingRepository):
     async def get_by_external_id(
         self,
         external_id: str,
-        source: str
-    ) -> Optional[JobPosting]:
+        source: str,
+    ) -> JobPosting | None:
         logger.debug(
             "Querying JobPosting by external_id=%s and source=%s",
-            external_id, source
+            external_id,
+            source,
         )
         stmt = select(JobPostingModel).where(
             JobPostingModel.external_id == external_id,
@@ -60,6 +61,38 @@ class JobPostingSQLAlchemyRepository(JobPostingRepository):
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_domain(model) if model else None
+
+    async def get_by_id(self, job_posting_id: UUID) -> JobPosting | None:
+        stmt = select(JobPostingModel).where(JobPostingModel.id == job_posting_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_domain(model) if model else None
+
+    async def search(
+        self,
+        *,
+        query: str | None = None,
+        location: str | None = None,
+        limit: int = 20,
+    ) -> list[JobPosting]:
+        stmt = select(JobPostingModel).order_by(JobPostingModel.posted_at.desc().nullslast())
+
+        if query:
+            pattern = f"%{query}%"
+            stmt = stmt.where(
+                or_(
+                    JobPostingModel.title.ilike(pattern),
+                    JobPostingModel.company.ilike(pattern),
+                    JobPostingModel.description.ilike(pattern),
+                    JobPostingModel.skills_raw.ilike(pattern),
+                )
+            )
+        if location:
+            stmt = stmt.where(JobPostingModel.location.ilike(f"%{location}%"))
+
+        stmt = stmt.limit(max(1, min(limit, 100)))
+        result = await self.session.execute(stmt)
+        return [_to_domain(model) for model in result.scalars().all()]
 
     async def upsert(self, job: JobPosting) -> JobPosting:
         stmt = (
@@ -109,7 +142,8 @@ class JobPostingSQLAlchemyRepository(JobPostingRepository):
         model = result.scalar_one()
         logger.info(
             "JobPosting upserted external_id=%s and source=%s",
-            JobPosting.external_id, job.source
+            job.external_id,
+            job.source,
         )
         return _to_domain(model)
 
@@ -118,7 +152,7 @@ class JobPostingSQLAlchemyRepository(JobPostingRepository):
         candidate_id: UUID,
         limit: int = 50,
         offset: int = 0,
-    ) -> list["JobPosting"]:
+    ) -> list[JobPosting]:
         # TODO: Need to be reviewed when the candidate search history is implemented
         stmt = (
             select(JobPostingModel)

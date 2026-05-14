@@ -1,9 +1,12 @@
+from dataclasses import dataclass
+from datetime import UTC, datetime
 import json
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from app.application.ai_analysis.ports import AIAnalysisRepository
+from app.application.ai_analysis.ports import AIAnalysisPipelinePort, AIAnalysisRepository
 from app.domain.ai_analysis.entities import AIAnalysis
+from app.domain.ai_analysis.enums import AnalysisQualityTier, AnalysisStatus
 from app.domain.ai_analysis.services.model_router import ModelRouter
 from app.domain.common.exceptions import NotFoundError
 
@@ -92,4 +95,68 @@ class GetAnalysisUseCase:
                 code="ai_analysis_not_found",
                 details=f"AIAnalysis {analysis_id} not found.",
             )
+        return analysis
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeMatchScoreCommand:
+    candidate_id: UUID
+    job_posting_id: UUID
+    tier: AnalysisQualityTier = AnalysisQualityTier.FAST
+
+
+class ComputeMatchScoreUseCase:
+    """Hybrid cache pattern: return cached result, queue in-flight, retry failed, or start fresh."""
+
+    def __init__(self, repo: AIAnalysisRepository, pipeline: AIAnalysisPipelinePort) -> None:
+        self._repo = repo
+        self._pipeline = pipeline
+
+    async def execute(self, command: ComputeMatchScoreCommand) -> AIAnalysis:
+        existing = await self._repo.find_by_candidate_and_job(
+            command.candidate_id, command.job_posting_id
+        )
+
+        _terminal_or_inflight = (
+            AnalysisStatus.COMPLETED,
+            AnalysisStatus.PENDING,
+            AnalysisStatus.PROCESSING,
+        )
+        if existing is not None:
+            if existing.status in _terminal_or_inflight:
+                return existing
+            # FAILED — reset and retry
+            existing.reset_for_retry()
+            await self._repo.save(existing)
+            analysis = existing
+        else:
+            analysis = AIAnalysis(
+                id=uuid4(),
+                candidate_id=command.candidate_id,
+                job_posting_id=command.job_posting_id,
+                status=AnalysisStatus.PENDING,
+                match_score=None,
+                quality_tier=command.tier,
+                tokens_consumed=0,
+                created_at=datetime.now(UTC),
+                completed_at=None,
+            )
+
+        analysis.start_processing()
+        await self._repo.save(analysis)
+
+        try:
+            score = await self._pipeline.run(
+                candidate_id=analysis.candidate_id,
+                job_posting_id=analysis.job_posting_id,
+                tier=command.tier,
+                analysis_id=analysis.id,
+            )
+            analysis.complete(score)
+        except Exception as exc:
+            analysis.fail(str(exc))
+            await self._repo.save(analysis)
+            raise
+
+        await self._repo.save(analysis)
         return analysis

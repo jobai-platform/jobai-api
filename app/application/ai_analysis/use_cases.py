@@ -1,7 +1,11 @@
 import json
 import logging
+from uuid import UUID
 
+from app.application.ai_analysis.ports import AIAnalysisRepository
+from app.domain.ai_analysis.entities import AIAnalysis
 from app.domain.ai_analysis.services.model_router import ModelRouter
+from app.domain.common.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -73,3 +77,19 @@ class AnalyzeJobDescriptionUseCase:
         except json.JSONDecodeError:
             logger.error("LLM did not return valid JSON, falling back to raw: %s", response[:200])
             return {"raw_analysis": response}
+
+
+class GetAnalysisUseCase:
+    """Returns an AIAnalysis aggregate by ID, or raises NotFoundError."""
+
+    def __init__(self, repo: AIAnalysisRepository) -> None:
+        self._repo = repo
+
+    async def execute(self, analysis_id: UUID) -> AIAnalysis:
+        analysis = await self._repo.find_by_id(analysis_id)
+        if analysis is None:
+            raise NotFoundError(
+                code="ai_analysis_not_found",
+                details=f"AIAnalysis {analysis_id} not found.",
+            )
+        return analysis

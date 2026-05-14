@@ -1,12 +1,13 @@
+from collections.abc import AsyncGenerator
 import os
+from typing import Any
 import uuid
-from typing import Any, AsyncGenerator
 
+from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.constants.general import DB_SCHEMA
 from app.core.dependency import get_billing_gateway
@@ -48,6 +49,7 @@ async def create_test_schema(async_engine):
         # Drop all with CASCADE to handle FK dependencies, then recreate
         await conn.execute(text(f'DROP SCHEMA IF EXISTS "{DB_SCHEMA}" CASCADE'))
         await conn.execute(text(f'CREATE SCHEMA "{DB_SCHEMA}"'))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
     yield

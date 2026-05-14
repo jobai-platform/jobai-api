@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 from uuid import UUID
 
 from app.domain.job_search.entities import JobPosting
@@ -28,7 +27,7 @@ class JobScraperGateway(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_job_detail(self, job_id: str) -> Optional[ScrapedJob]:
+    async def get_job_detail(self, job_id: str) -> ScrapedJob | None:
         """
         Retrieve full details for a specific job posting by its external ID.
         Returns None if the job is no longer available on the source platform.
@@ -48,8 +47,8 @@ class JobPostingRepository(ABC):
     async def get_by_external_id(
         self,
         external_id: str,
-        source: str
-    ) -> Optional["JobPosting"]:
+        source: str,
+    ) -> JobPosting | None:
         """
         Get a JobPosting by its external identifier and source platform.
         Used for deduplication before persisting a new scraped job.
@@ -59,9 +58,24 @@ class JobPostingRepository(ABC):
         """
         raise NotImplementedError()
 
+    @abstractmethod
+    async def get_by_id(self, job_posting_id: UUID) -> JobPosting | None:
+        """Get a JobPosting by internal ID."""
+        raise NotImplementedError()
 
     @abstractmethod
-    async def upsert(self, job_posting: "JobPosting") -> "JobPosting":
+    async def search(
+        self,
+        *,
+        query: str | None = None,
+        location: str | None = None,
+        limit: int = 20,
+    ) -> list[JobPosting]:
+        """Search persisted JobPostings for internal AI tools."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def upsert(self, job_posting: JobPosting) -> JobPosting:
         """
         Create or update a JobPosting entity in the repository.
         Used to persist new scraped jobs and update existing ones with latest details.
@@ -77,7 +91,7 @@ class JobPostingRepository(ABC):
         candidate_id: UUID,
         limit: int = 50,
         offset: int = 0,
-    ) -> list["JobPosting"]:
+    ) -> list[JobPosting]:
         """
         List JobPostings associated with a candidate's search history.
         :param candidate_id: Candidate user ID.
@@ -109,11 +123,11 @@ class SearchAgentRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_id(self, agent_id: UUID) -> Optional[SearchAgent]:
+    async def get_by_id(self, agent_id: UUID) -> SearchAgent | None:
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_candidate_id(self, candidate_id: UUID) -> Optional[SearchAgent]:
+    async def get_by_candidate_id(self, candidate_id: UUID) -> SearchAgent | None:
         """Return the active agent for a candidate (at most one)."""
         raise NotImplementedError()
 

@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
-from app.domain.ai_analysis.enums import AnalysisStatus, AnalysisQualityTier
+from app.domain.ai_analysis.enums import AnalysisQualityTier, AnalysisStatus
 from app.domain.ai_analysis.value_objects import MatchScore
+
 
 @dataclass(slots=True)
 class AIAnalysis:
@@ -45,4 +46,14 @@ class AIAnalysis:
         self.status = AnalysisStatus.FAILED
         self.failure_reason = reason
         self.completed_at = datetime.now(UTC)
+
+    def reset_for_retry(self) -> None:
+        if self.status != AnalysisStatus.FAILED:
+            raise ValueError(
+                f"Cannot retry from {self.status.name}. "
+                f"Expected status: {AnalysisStatus.FAILED.name}"
+            )
+        self.status = AnalysisStatus.PENDING
+        self.failure_reason = None
+        self.completed_at = None
 

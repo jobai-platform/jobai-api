@@ -49,7 +49,7 @@ verbose = true
 python_version = "3.13"
 strict = false
 warn_unused_ignores = true
-ignore-missing-imports = true
+ignore_missing_imports = true
 
 [tool.isort]
 profile = "black"

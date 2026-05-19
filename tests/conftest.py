@@ -19,6 +19,26 @@ from app.main import app
 from tests.fakes.billing.fake_billing_gateway import FakeBillingGateway
 
 
+DB_DEPENDENT_FIXTURES = frozenset(
+    {
+        "async_engine",
+        "create_test_schema",
+        "db_session",
+        "client",
+        "ai_client",
+        "create_user_in_db",
+        "freemium_price_in_db",
+    }
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    integration_marker = pytest.mark.integration
+    for item in items:
+        if DB_DEPENDENT_FIXTURES.intersection(item.fixturenames):
+            item.add_marker(integration_marker)
+
+
 def _test_db_url() -> str:
     url = os.getenv("DATABASE_URL_TEST") or os.getenv("DATABASE_URL")
     if not url:
@@ -37,7 +57,7 @@ async def async_engine():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session")
 async def create_test_schema(async_engine):
     """
     Create tables once per test session (faster + less flaky).
@@ -56,7 +76,7 @@ async def create_test_schema(async_engine):
 
 
 @pytest_asyncio.fixture()
-async def db_session(async_engine) -> AsyncGenerator[AsyncSession | Any, Any]:
+async def db_session(async_engine, create_test_schema) -> AsyncGenerator[AsyncSession | Any, Any]:
     session_factory = async_sessionmaker(
         bind=async_engine,
         expire_on_commit=False,

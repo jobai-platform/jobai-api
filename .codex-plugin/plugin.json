@@ -1,0 +1,27 @@
+{
+  "name": "backend-api-codex-workflows",
+  "version": "0.1.0",
+  "description": "Codex ports of the local Claude commands and agents for backend-api.",
+  "keywords": [
+    "codex",
+    "workflows",
+    "sovrum",
+    "jobai"
+  ],
+  "skills": "./.codex/skills/",
+  "commands": "./.codex/commands/",
+  "interface": {
+    "displayName": "backend-api Codex Workflows",
+    "shortDescription": "Codex ports of the local Claude commands and agents for backend-api.",
+    "longDescription": "Migrated non-destructively from .claude. Includes 6 command workflow(s) and 6 skill workflow(s).",
+    "developerName": "Sovrum",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use one of the migrated Sovrum workflows"
+    ]
+  }
+}

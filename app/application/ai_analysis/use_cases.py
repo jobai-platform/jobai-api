@@ -122,6 +122,9 @@ class GetAnalysisUseCase:
             )
         return analysis
 
+    async def find_by_candidate(self, candidate_id: UUID, limit: int = 20) -> list[AIAnalysis]:
+        return await self._repo.find_by_candidate(candidate_id, limit=limit)
+
 
 @dataclass(frozen=True, slots=True)
 class ComputeMatchScoreCommand:

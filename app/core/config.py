@@ -4,12 +4,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> list[str]:
+  origins = [
+      origin.strip()
+      for origin in (raw_value or fallback_origin).split(",")
+      if origin.strip()
+  ]
+  if "*" in origins:
+    raise ValueError("CORS_ALLOW_ORIGINS cannot contain '*' when credentials are enabled")
+  return origins
+
+
+_FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+
+
 class Settings:
   SECRET_KEY = os.getenv("SECRET_KEY", "secret")
   ALGORITHM = "HS256"
   ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
   REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN", "7"))
-  FRONTEND_ORIGIN: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+  FRONTEND_ORIGIN: str = _FRONTEND_ORIGIN
+  CORS_ALLOW_ORIGINS: list[str] = _parse_cors_allow_origins(
+      os.getenv("CORS_ALLOW_ORIGINS"),
+      _FRONTEND_ORIGIN,
+  )
   DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
   DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 

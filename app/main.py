@@ -4,6 +4,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
+from app.core.config import settings
 from app.core.handlers import setup_routers
 from app.core.logging import setup_logging
 from app.core.rate_limiting import limiter
@@ -37,7 +38,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.CORS_ALLOW_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

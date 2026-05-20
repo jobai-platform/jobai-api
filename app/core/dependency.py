@@ -19,6 +19,8 @@ from app.application.ai_analysis.use_cases import (
     IndexJobPostingUseCase,
 )
 from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
+from app.application.auth.ports import RefreshTokenRepository
+from app.application.auth.use_cases import LogoutUseCase, RefreshTokenUseCase
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
@@ -75,6 +77,9 @@ from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy im
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import (
     JobPostingSQLAlchemyRepository,
 )
+from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
+    SQLAlchemyRefreshTokenRepository,
+)
 from app.infrastructure.persistence.repositories.search_agent_sqlalchemy import (
     SQLAlchemySearchAgentRepository,
 )
@@ -97,6 +102,32 @@ def get_user_repository(
     session: DbSession,
 ) -> UserRepository:
     return SqlAlchemyUserRepository(session=session)
+
+
+def get_refresh_token_repository(
+    session: DbSession,
+) -> RefreshTokenRepository:
+    return SQLAlchemyRefreshTokenRepository(session=session)
+
+
+def get_refresh_token_use_case(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
+) -> RefreshTokenUseCase:
+    return RefreshTokenUseCase(
+        user_repo=user_repo,
+        token_service=JWTTokenServiceAdapter(),
+        refresh_token_repo=refresh_token_repo,
+    )
+
+
+def get_logout_use_case(
+    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
+) -> LogoutUseCase:
+    return LogoutUseCase(
+        token_service=JWTTokenServiceAdapter(),
+        refresh_token_repo=refresh_token_repo,
+    )
 
 # ---------------------------------------------------------------------------
 # Candidate Profile - factories
@@ -394,6 +425,8 @@ def get_get_candidate_job_matches_use_case(
 # ---------------------------------------------------------------------------
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
+RefreshTokenUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_token_use_case)]
+LogoutUseCaseDep = Annotated[LogoutUseCase, Depends(get_logout_use_case)]
 SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
 AssignFreemiumDep = Annotated[
     AssignFreemiumOnSignupUseCase,

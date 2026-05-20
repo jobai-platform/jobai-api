@@ -2,15 +2,21 @@ import secrets
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.application.auth.use_cases import AuthService
-from app.core.dependency import LinkedInOAuthUseCaseDep, UserRepositoryDep
+from app.core.dependency import (
+    LinkedInOAuthUseCaseDep,
+    LogoutUseCaseDep,
+    RefreshTokenUseCaseDep,
+    UserRepositoryDep,
+)
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
 from app.presentation.api.v1.schemas.auth import (
+    AccessTokenResponse,
     LinkedInAuthUrlResponse,
     LinkedInCallbackRequest,
     LinkedInCodeResponse,
@@ -22,6 +28,9 @@ router = APIRouter(
     prefix="/auth",
     tags=["auth"],
 )
+
+REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
+REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 
 
 def get_auth_service(
@@ -67,7 +76,63 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+
+
+@router.post(
+    "/refresh",
+    response_model=AccessTokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh access token from the httpOnly refresh cookie",
+)
+async def refresh_session(
+    request: Request,
+    response: Response,
+    use_case: RefreshTokenUseCaseDep,
+) -> AccessTokenResponse:
+    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
+    tokens = await use_case.execute(refresh_token)
+    response.set_cookie(
+        REFRESH_TOKEN_COOKIE_NAME,
+        tokens.refresh_token,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return AccessTokenResponse(access_token=tokens.access_token, token_type=tokens.token_type)
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout by revoking and expiring the refresh cookie",
+)
+async def logout(
+    request: Request,
+    response: Response,
+    use_case: LogoutUseCaseDep,
+) -> None:
+    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if refresh_token:
+        await use_case.execute(refresh_token)
+
+    response.delete_cookie(
+        REFRESH_TOKEN_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
+    return None
 
 
 @router.get(
@@ -91,7 +156,10 @@ async def linkedin_auth_url(
     response_model=LinkedInCodeResponse,
     status_code=status.HTTP_200_OK,
     summary="LinkedIn OAuth redirect — returns code as JSON (dev helper)",
-    description="LinkedIn redirects here after authorization. Returns the code and redirect_uri as JSON for easy copy-paste in Postman.",
+    description=(
+        "LinkedIn redirects here after authorization. Returns the code and redirect_uri as JSON "
+        "for easy copy-paste in Postman."
+    ),
 )
 async def linkedin_callback_get(code: str, state: str = "") -> LinkedInCodeResponse:
     """Dev helper: exposes the LinkedIn auth code as JSON instead of crashing with 422."""
@@ -119,7 +187,7 @@ async def linkedin_callback(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=exc.details,
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from exc
     return TokenPairSchema(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
@@ -145,8 +213,8 @@ async def linkedin_link(
             redirect_uri=body.redirect_uri,
         )
     except UnauthorizedError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=exc.details)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=exc.details) from exc
     except ConflictError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.details)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.details) from exc
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.details)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.details) from exc

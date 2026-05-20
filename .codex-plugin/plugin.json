@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "backend-api Codex Workflows",
     "shortDescription": "Codex ports of the local Claude commands and agents for backend-api.",
-    "longDescription": "Migrated non-destructively from .claude. Includes 6 command workflow(s) and 6 skill workflow(s).",
+    "longDescription": "Migrated non-destructively from .claude. Includes 6 command workflow(s), 6 command skill workflow(s), and the general jobai-backend skill.",
     "developerName": "Sovrum",
     "category": "Coding",
     "capabilities": [

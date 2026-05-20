@@ -75,6 +75,62 @@ class FakeTokenService(TokenService):
 
 
 @pytest.mark.asyncio
+async def test_refresh_raises_unauthorized_when_token_is_malformed() -> None:
+    user_repo = InMemoryUserRepository()
+    token_service = FakeTokenService()
+    refresh_repo = FakeRefreshTokenRepository()
+    use_case = RefreshTokenUseCase(
+        user_repo=user_repo,
+        token_service=token_service,
+        refresh_token_repo=refresh_repo,
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await use_case.execute("not-a-valid-token")
+
+
+@pytest.mark.asyncio
+async def test_refresh_raises_unauthorized_when_token_is_expired() -> None:
+    user_repo = InMemoryUserRepository()
+    user = await user_repo.create(User(id=None, email=Email.from_raw("user@example.com")))
+    token_service = FakeTokenService()
+    token_service.add_refresh_token(
+        "expired-token",
+        subject=str(user.id),
+        jti="expired-jti",
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+    refresh_repo = FakeRefreshTokenRepository()
+    use_case = RefreshTokenUseCase(
+        user_repo=user_repo,
+        token_service=token_service,
+        refresh_token_repo=refresh_repo,
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await use_case.execute("expired-token")
+
+
+@pytest.mark.asyncio
+async def test_refresh_raises_unauthorized_when_user_is_inactive() -> None:
+    user_repo = InMemoryUserRepository()
+    user = await user_repo.create(
+        User(id=None, email=Email.from_raw("inactive@example.com"), is_active=False)
+    )
+    token_service = FakeTokenService()
+    token_service.add_refresh_token("valid-token", subject=str(user.id), jti="active-jti")
+    refresh_repo = FakeRefreshTokenRepository()
+    use_case = RefreshTokenUseCase(
+        user_repo=user_repo,
+        token_service=token_service,
+        refresh_token_repo=refresh_repo,
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await use_case.execute("valid-token")
+
+
+@pytest.mark.asyncio
 async def test_refresh_token_raises_unauthorized_when_token_is_revoked() -> None:
     user_repo = InMemoryUserRepository()
     user = await user_repo.create(User(id=None, email=Email.from_raw("user@example.com")))

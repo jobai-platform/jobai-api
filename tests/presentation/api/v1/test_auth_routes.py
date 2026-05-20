@@ -66,3 +66,37 @@ async def test_logout_without_refresh_cookie_returns_204(client):
 
     assert response.status_code == 204
     assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+@pytest.mark.asyncio
+async def test_refresh_returns_200_with_new_cookie_and_access_token(
+    client, db_session, create_user_in_db, jwt_service
+):
+    user = await create_user_in_db("refresh@example.com")
+    old_token = jwt_service.create_refresh_token(
+        subject=str(user.id), extra={"role": user.role, "email": user.email}
+    )
+    await _persist_refresh_token(db_session, jwt_service, user.id, old_token)
+    client.cookies.set("refresh_token", old_token)
+
+    response = await client.post("/api/v1/auth/refresh")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "access_token" in body
+    assert body.get("token_type") == "Bearer"
+    set_cookie = response.headers["set-cookie"]
+    assert "refresh_token=" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Max-Age=604800" in set_cookie
+    new_token = response.cookies.get("refresh_token")
+    assert new_token is not None
+    assert new_token != old_token
+
+
+@pytest.mark.asyncio
+async def test_refresh_without_cookie_returns_401(client):
+    response = await client.post("/api/v1/auth/refresh")
+
+    assert response.status_code == 401
+    assert response.headers.get("www-authenticate") == "Bearer"

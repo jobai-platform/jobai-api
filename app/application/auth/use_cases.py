@@ -188,8 +188,8 @@ class LogoutUseCase:
         self._refresh_token_repo = refresh_token_repo
 
     async def execute(self, refresh_token: str) -> None:
-        claims = _decode_refresh_token(self._token_service, refresh_token)
         try:
+            claims = _decode_refresh_token(self._token_service, refresh_token)
             await self._refresh_token_repo.revoke(claims.jti)
         except Exception:
             return None

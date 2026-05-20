@@ -76,3 +76,12 @@ async def test_logout_does_not_propagate_repository_failure() -> None:
     use_case = LogoutUseCase(token_service=token_service, refresh_token_repo=refresh_repo)
 
     await use_case.execute("refresh-token")
+
+
+@pytest.mark.asyncio
+async def test_logout_with_malformed_token_is_graceful() -> None:
+    token_service = FakeTokenService()
+    refresh_repo = FakeRefreshTokenRepository()
+    use_case = LogoutUseCase(token_service=token_service, refresh_token_repo=refresh_repo)
+
+    await use_case.execute("not-a-valid-token")

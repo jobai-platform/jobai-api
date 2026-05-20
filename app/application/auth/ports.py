@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Optional
+from datetime import datetime
+from uuid import UUID
 
 from app.domain.users.value_objects import LinkedInProfile
 
@@ -34,7 +35,7 @@ class TokenService(ABC):
     def create_access_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Mapping[str, any] | None = None,
     ) -> str:
         raise NotImplementedError
 
@@ -42,7 +43,7 @@ class TokenService(ABC):
     def create_refresh_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Mapping[str, any] | None = None,
     ) -> str:
         raise NotImplementedError
 
@@ -51,4 +52,20 @@ class TokenService(ABC):
         self,
         token: str,
     ) -> Mapping[str, any]:
+        raise NotImplementedError
+
+
+class RefreshTokenRepository(ABC):
+    """Port for refresh token persistence and revocation."""
+
+    @abstractmethod
+    async def is_revoked(self, jti: str) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def revoke(self, jti: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def persist(self, *, jti: str, user_id: UUID, expires_at: datetime) -> None:
         raise NotImplementedError

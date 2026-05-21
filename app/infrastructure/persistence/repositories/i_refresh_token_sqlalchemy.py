@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.auth.ports import IRefreshTokenRepository
+from app.application.auth.ports import RefreshTokenRepository
 from app.domain.users.entities import RefreshToken
 from app.infrastructure.persistence.models.refresh_token import RefreshTokenModel
 
 
-class SQLAlchemyIRefreshTokenRepository(IRefreshTokenRepository):
+class SQLAlchemyIRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

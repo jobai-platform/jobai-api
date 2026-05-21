@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 
-from app.application.auth.ports import IRefreshTokenRepository
+from app.application.auth.ports import RefreshTokenRepository
 from app.domain.users.entities import RefreshToken
 
 
-class InMemoryIRefreshTokenRepository(IRefreshTokenRepository):
+class InMemoryIRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self) -> None:
         self._store: dict[str, RefreshToken] = {}
 

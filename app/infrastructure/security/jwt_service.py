@@ -35,7 +35,7 @@ class JWTService:
     def _now(self) -> datetime:
         return datetime.now(timezone.utc)
 
-    def _base_claims(self, subject: str) -> dict[str, any]:
+    def _base_claims(self, subject: str) -> dict[str, object]:
         now = self._now()
         return {
             "sub": subject,
@@ -46,10 +46,10 @@ class JWTService:
             "jti": str(uuid.uuid4()),
         }
 
-    def _encode(self, claims: Mapping[str, any]) -> str:
+    def _encode(self, claims: Mapping[str, object]) -> str:
         return jwt.encode(claims, self.cfg.secret, algorithm=self.cfg.algorithm)
 
-    def _decode(self, token: str) -> Mapping[str, any]:
+    def _decode(self, token: str) -> Mapping[str, object]:
         return jwt.decode(
             token,
             self.cfg.secret,
@@ -63,7 +63,7 @@ class JWTService:
             }
         )
 
-    def create_access_token(self, subject: str, extra: Optional[Mapping[str, any]] = None) -> str:
+    def create_access_token(self, subject: str, extra: Optional[Mapping[str, object]] = None) -> str:
         payload = self._base_claims(subject)
         if extra:
             payload.update(extra)
@@ -71,7 +71,7 @@ class JWTService:
         payload["exp"] = self._now() + timedelta(minutes=self.cfg.access_token_expire_minutes)
         return self._encode(payload)
 
-    def create_refresh_token(self, subject: str, extra: Optional[Mapping[str, any]] = None) -> str:
+    def create_refresh_token(self, subject: str, extra: Optional[Mapping[str, object]] = None) -> str:
         payload = self._base_claims(subject)
         if extra:
             payload.update(extra)
@@ -79,7 +79,7 @@ class JWTService:
         payload["exp"] = self._now() + timedelta(minutes=self.cfg.refresh_token_expire_days)
         return self._encode(payload)
 
-    def decode_token(self, token: str) -> Mapping[str, any]:
+    def decode_token(self, token: str) -> Mapping[str, object]:
         return self._decode(token)
 
     def validate_refresh_token(self, token: str) -> str:
@@ -103,18 +103,18 @@ class JWTTokenServiceAdapter(TokenService):
     def create_access_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Optional[Mapping[str, object]] = None,
     ) -> str:
         return self._service.create_access_token(subject, extra)
 
     def create_refresh_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Optional[Mapping[str, object]] = None,
     ) -> str:
         return self._service.create_refresh_token(subject, extra)
 
-    def decode_token(self, token: str) -> Mapping[str, any]:
+    def decode_token(self, token: str) -> Mapping[str, object]:
         return self._service.decode_token(token)
 
     def validate_refresh_token(self, token: str) -> str:

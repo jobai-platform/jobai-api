@@ -4,11 +4,10 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.auth.ports import RefreshTokenRepository
 from app.infrastructure.persistence.models.refresh_token import RefreshTokenModel
 
 
-class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
+class SQLAlchemyRefreshTokenRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from app.application.auth.ports import OAuthGateway, TokenService
+from app.application.auth.ports import LinkedInOAuthGateway, TokenService
 from app.application.auth.use_cases import TokenPair
 from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
@@ -25,7 +25,7 @@ class LinkedInOAuthUseCase:
     """
     def __init__(
         self,
-        oauth_gateway: OAuthGateway,
+        oauth_gateway: LinkedInOAuthGateway,
         user_repo: UserRepository,
         token_service: TokenService,
         freemium_use_case: AssignFreemiumOnSignupUseCase,

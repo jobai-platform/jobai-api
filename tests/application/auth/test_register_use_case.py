@@ -14,6 +14,7 @@ from app.application.auth.use_cases import RegisterResult, RegisterUseCase, Toke
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
 from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
+from app.domain.users.entities import RefreshToken
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 # ---------------------------------------------------------------------------
@@ -60,17 +61,18 @@ class FakeTokenService(TokenService):
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self) -> None:
-        self.persisted: dict[str, tuple[UUID, datetime]] = {}
-        self.revoked: set[str] = set()
+        self._store: dict[str, RefreshToken] = {}
 
-    async def is_revoked(self, jti: str) -> bool:
-        return jti in self.revoked
+    async def save(self, token: RefreshToken) -> None:
+        self._store[token.token_hash] = token
 
-    async def revoke(self, jti: str) -> None:
-        self.revoked.add(jti)
+    async def find_by_token_hash(self, token_hash: str) -> RefreshToken | None:
+        return self._store.get(token_hash)
 
-    async def persist(self, *, jti: str, user_id: UUID, expires_at: datetime) -> None:
-        self.persisted[jti] = (user_id, expires_at)
+    async def revoke(self, token_hash: str) -> None:
+        token = self._store.get(token_hash)
+        if token is not None and token.revoked_at is None:
+            token.revoked_at = datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -160,16 +162,16 @@ async def test_register_issues_access_token_and_refresh_token() -> None:
 
 
 @pytest.mark.asyncio
-async def test_register_persists_refresh_token_jti_in_repository() -> None:
-    """Le jti du refresh_token est persisté pour permettre rotation et révocation."""
+async def test_register_persists_refresh_token_in_repository() -> None:
+    """Le refresh_token est persisté (par hash) pour permettre rotation et révocation."""
     use_case, _, token_service, refresh_repo = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    assert len(refresh_repo.persisted) == 1
-    jti, (persisted_user_id, expires_at) = next(iter(refresh_repo.persisted.items()))
-    assert persisted_user_id == result.candidate.id
-    assert expires_at > datetime.now(UTC)
+    assert len(refresh_repo._store) == 1
+    stored = next(iter(refresh_repo._store.values()))
+    assert stored.user_id == result.candidate.id
+    assert stored.expires_at > datetime.now(UTC)
 
 
 @pytest.mark.asyncio
@@ -201,9 +203,9 @@ async def test_register_does_not_persist_refresh_token_on_conflict() -> None:
     """Aucun refresh_token n'est persisté si la création du Candidate échoue."""
     use_case, _, _, refresh_repo = _make_use_case()
     await use_case.execute(**_VALID_ARGS)
-    initial_count = len(refresh_repo.persisted)
+    initial_count = len(refresh_repo._store)
 
     with pytest.raises(ConflictError):
         await use_case.execute(**_VALID_ARGS)
 
-    assert len(refresh_repo.persisted) == initial_count
+    assert len(refresh_repo._store) == initial_count

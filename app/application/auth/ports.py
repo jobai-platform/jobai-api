@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import LinkedInProfile
 
 

@@ -4,7 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.auth.ports import RefreshTokenRepository
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 from app.infrastructure.persistence.models.refresh_token import RefreshTokenModel
 
 
@@ -43,6 +43,7 @@ class SQLAlchemyIRefreshTokenRepository(RefreshTokenRepository):
 
 def _to_domain(model: RefreshTokenModel) -> RefreshToken:
     return RefreshToken(
+        id=model.id,
         token_hash=model.token_hash,
         user_id=model.user_id,
         expires_at=model.expires_at,

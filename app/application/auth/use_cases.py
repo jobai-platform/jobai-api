@@ -2,13 +2,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.users.ports import PasswordHasher, UserRepository
 from app.application.users.use_cases import CandidateService
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import Candidate, RefreshToken
+from app.domain.users.entities import Candidate
+from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email
 
 
@@ -172,6 +173,7 @@ class RefreshTokenUseCase:
 
         new_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
         await self._refresh_token_repo.save(RefreshToken(
+            id=uuid4(),
             token_hash=new_hash,
             user_id=new_claims.subject,
             expires_at=new_claims.expires_at,
@@ -246,6 +248,7 @@ class RegisterUseCase:
         token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
         claims = _decode_refresh_token(self._token_service, refresh_token)
         await self._refresh_token_repo.save(RefreshToken(
+            id=uuid4(),
             token_hash=token_hash,
             user_id=claims.subject,
             expires_at=claims.expires_at,

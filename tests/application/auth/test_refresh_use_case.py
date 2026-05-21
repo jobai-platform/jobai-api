@@ -1,14 +1,15 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RefreshTokenUseCase, TokenPair
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import RefreshToken, User
+from app.domain.users.entities import User
+from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
@@ -27,6 +28,7 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
     ) -> str:
         token_hash = sha256(token_raw.encode()).hexdigest()
         self._store[token_hash] = RefreshToken(
+            id=uuid4(),
             token_hash=token_hash,
             user_id=user_id,
             expires_at=expires_at or datetime.now(UTC) + timedelta(days=7),

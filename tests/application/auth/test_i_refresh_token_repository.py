@@ -8,12 +8,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 from tests.fakes.auth.in_memory_refresh_token_repo import InMemoryIRefreshTokenRepository
 
 
 def _make_token(*, expires_in_days: int = 7, revoked: bool = False) -> RefreshToken:
     return RefreshToken(
+        id=uuid4(),
         token_hash=f"hash-{uuid4().hex}",
         user_id=uuid4(),
         expires_at=datetime.now(UTC) + timedelta(days=expires_in_days),

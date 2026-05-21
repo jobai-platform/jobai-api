@@ -31,7 +31,7 @@ async def test_register_creates_user_with_hashed_password():
     assert user.id is not None
     assert isinstance(user.email, Email)
     assert str(user.email) == "user@example.com"
-    assert user.hashed_password == "hashed_securepassword"
+    assert str(user.hashed_password) == "hashed_securepassword"
     assert user.role == "user"
     assert user.is_active is True
 

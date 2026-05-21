@@ -1,8 +1,8 @@
-from app.application.auth.ports import OAuthGateway
+from app.application.auth.ports import LinkedInOAuthGateway
 from app.domain.users.value_objects import LinkedInProfile
 
 
-class FakeOAuthGateway(OAuthGateway):
+class FakeOAuthGateway(LinkedInOAuthGateway):
     """
     In-memory fake for OAuthGateway.
     Pass a LinkedInProfile to simulate success, or an Exception to simulate failure.

@@ -1,14 +1,14 @@
 import logging
 from uuid import UUID
 
-from app.application.auth.ports import OAuthGateway, TokenService
+from app.application.auth.ports import LinkedInOAuthGateway, TokenService
 from app.application.auth.use_cases import TokenPair
 from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.ports import UserRepository
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.domain.users.candidate_profile import CandidateProfile
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email, LinkedInProfile
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class LinkedInOAuthUseCase:
     """
     def __init__(
         self,
-        oauth_gateway: OAuthGateway,
+        oauth_gateway: LinkedInOAuthGateway,
         user_repo: UserRepository,
         token_service: TokenService,
         freemium_use_case: AssignFreemiumOnSignupUseCase,
@@ -62,7 +62,7 @@ class LinkedInOAuthUseCase:
         logger.info("LinkedInOAuth.execute: JWT issued for user_id=%s", user.id)
         return tokens
 
-    async def _resolve_user(self, profile: LinkedInProfile) -> User:
+    async def _resolve_user(self, profile: LinkedInProfile) -> Candidate:
         logger.debug("LinkedInOAuth._resolve_user: looking up linkedin_id=%r", profile.linkedin_id)
 
         # Branch 1 — returning user (linkedin_id already attached)
@@ -84,7 +84,7 @@ class LinkedInOAuthUseCase:
             profile.linkedin_id,
             profile.email,
         )
-        new_user = User(
+        new_user = Candidate(
             id=None,
             email=email_vo,
             first_name=profile.first_name,
@@ -164,7 +164,7 @@ class LinkedInOAuthUseCase:
         logger.debug("LinkedInOAuth.build_authorization_url: redirect_uri=%r state=%r", redirect_uri, state)
         return self._gateway.build_authorization_url(redirect_uri=redirect_uri, state=state)
 
-    def _issue_tokens(self, user: User) -> TokenPair:
+    def _issue_tokens(self, user: Candidate) -> TokenPair:
         logger.debug("LinkedInOAuth._issue_tokens: generating JWT for user_id=%s role=%r", user.id, user.role)
         subject = str(user.id)
         extra = {"role": user.role, "email": str(user.email)}

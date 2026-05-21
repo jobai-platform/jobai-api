@@ -145,7 +145,6 @@ async def create_user(
         first_name=payload.first_name,
         last_name=payload.last_name,
         password=payload.password,
-        stripe_customer_id=payload.stripe_customer_id,
         role=payload.role,
         is_active=payload.is_active,
     )

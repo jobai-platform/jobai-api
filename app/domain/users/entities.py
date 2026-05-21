@@ -1,22 +1,22 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.domain.common.deletion import DeletionInfo
-from app.domain.users.value_objects import Email, LinkedInProfile
+from app.domain.common.exceptions import ConflictError
+from app.domain.users.value_objects import Email, HashedPassword, LinkedInProfile
 
 
 @dataclass(slots=True)
-class User:
+class Candidate:
     id: UUID | None
     email: Email
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    hashed_password: str | None = None
+    hashed_password: HashedPassword | None = None
     role: str = "user"
     is_active: bool = True
-    stripe_customer_id: str | None = None
     linkedin_id: str | None = None
     avatar_url: str | None = None
     created_at: datetime | None = None
@@ -24,13 +24,40 @@ class User:
     deletion: DeletionInfo = field(default_factory=DeletionInfo)
 
     def attach_linkedin(self, profile: "LinkedInProfile") -> None:
-        """
-        Attach a LinkedIn identity to this user.
-        Raises ValueError if a different linkedin_id is already attached
-        (prevents account hijacking via email collision + linkedin swap).
-        """
         if self.linkedin_id is not None and self.linkedin_id != profile.linkedin_id:
-            msg = f"User already linked to a different LinkedIn account ({self.linkedin_id})"
-            raise ValueError(msg)
+            raise ConflictError(
+                code="linkedin_already_attached",
+                details=(
+                    f"Candidate already linked to a different LinkedIn account ({self.linkedin_id})"
+                ),
+            )
         self.linkedin_id = profile.linkedin_id
         self.avatar_url = profile.avatar_url
+
+
+@dataclass(slots=True)
+class RefreshToken:
+    """
+    Domain entity representing a persisted refresh token.
+    Keyed by token_hash (SHA-256 of the raw JWT string).
+    """
+    token_hash: str
+    user_id: UUID
+    expires_at: datetime
+    revoked_at: datetime | None = None
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at <= datetime.now(UTC)
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.is_revoked and not self.is_expired
+
+
+# Backwards-compatibility alias — remove once JOB-117 rename is complete
+User = Candidate

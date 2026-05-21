@@ -1,13 +1,14 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
 from uuid import UUID
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.users.ports import PasswordHasher, UserRepository
-from app.application.users.use_cases import UserService
+from app.application.users.use_cases import CandidateService
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate, RefreshToken
 from app.domain.users.value_objects import Email
 
 
@@ -75,7 +76,7 @@ def _decode_refresh_token(token_service: TokenService, refresh_token: str) -> Re
     return _parse_refresh_claims(claims)
 
 
-def _token_extra_from_user(user: User) -> dict[str, str]:
+def _token_extra_from_user(user: Candidate) -> dict[str, str]:
     return {
         "role": user.role,
         "email": str(user.email),
@@ -106,10 +107,10 @@ class AuthService:
         """
         email_vo = email if isinstance(email, Email) else Email.from_raw(email)
 
-        user: User | None = await self.user_repo.get_by_email(email_vo)
+        user: Candidate | None = await self.user_repo.get_by_email(email_vo)
         if (not user or
             not user.hashed_password or
-            not self.pwd_hasher.verify(password, user.hashed_password)
+            not self.pwd_hasher.verify(password, user.hashed_password.value)
         ):
             raise ValueError("Invalid credentials")
 
@@ -151,14 +152,17 @@ class RefreshTokenUseCase:
 
     async def execute(self, refresh_token: str) -> TokenPair:
         old_claims = _decode_refresh_token(self._token_service, refresh_token)
-        if await self._refresh_token_repo.is_revoked(old_claims.jti):
+
+        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        stored = await self._refresh_token_repo.find_by_token_hash(token_hash)
+        if stored is None or stored.is_revoked:
             _unauthorized()
 
         user = await self._user_repo.get_by_id(old_claims.subject)
         if not user or not user.is_active:
             _unauthorized()
 
-        await self._refresh_token_repo.revoke(old_claims.jti)
+        await self._refresh_token_repo.revoke(token_hash)
 
         subject = str(user.id)
         extra = _token_extra_from_user(user)
@@ -166,11 +170,12 @@ class RefreshTokenUseCase:
         new_refresh_token = self._token_service.create_refresh_token(subject=subject, extra=extra)
         new_claims = _decode_refresh_token(self._token_service, new_refresh_token)
 
-        await self._refresh_token_repo.persist(
-            jti=new_claims.jti,
+        new_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
+        await self._refresh_token_repo.save(RefreshToken(
+            token_hash=new_hash,
             user_id=new_claims.subject,
             expires_at=new_claims.expires_at,
-        )
+        ))
 
         return TokenPair(
             access_token=new_access_token,
@@ -182,30 +187,28 @@ class RefreshTokenUseCase:
 class LogoutUseCase:
     def __init__(
         self,
-        token_service: TokenService,
         refresh_token_repo: RefreshTokenRepository,
     ) -> None:
-        self._token_service = token_service
         self._refresh_token_repo = refresh_token_repo
 
     async def execute(self, refresh_token: str) -> None:
         try:
-            claims = _decode_refresh_token(self._token_service, refresh_token)
-            await self._refresh_token_repo.revoke(claims.jti)
+            token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+            await self._refresh_token_repo.revoke(token_hash)
         except Exception:
             return None
 
 
-@dataclass
+@dataclass(slots=True)
 class RegisterResult:
-    user: User
+    candidate: Candidate
     tokens: TokenPair
 
 
 class RegisterUseCase:
     def __init__(
         self,
-        user_service: UserService,
+        user_service: CandidateService,
         token_service: TokenService,
         refresh_token_repo: RefreshTokenRepository,
     ) -> None:
@@ -221,17 +224,17 @@ class RegisterUseCase:
         first_name: str,
         last_name: str,
     ) -> RegisterResult:
-        user = await self._user_service.register(
+        candidate = await self._user_service.register(
             email=email,
             password=password,
             first_name=first_name,
             last_name=last_name,
         )
-        tokens = self._issue_tokens(user)
-        await self._persist_refresh_token(user.id, tokens.refresh_token)
-        return RegisterResult(user=user, tokens=tokens)
+        tokens = self._issue_tokens(candidate)
+        await self._persist_refresh_token(candidate.id, tokens.refresh_token)
+        return RegisterResult(candidate=candidate, tokens=tokens)
 
-    def _issue_tokens(self, user: User) -> TokenPair:
+    def _issue_tokens(self, user: Candidate) -> TokenPair:
         subject = str(user.id)
         extra = _token_extra_from_user(user)
         return TokenPair(
@@ -240,9 +243,10 @@ class RegisterUseCase:
         )
 
     async def _persist_refresh_token(self, user_id: UUID, refresh_token: str) -> None:
+        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
         claims = _decode_refresh_token(self._token_service, refresh_token)
-        await self._refresh_token_repo.persist(
-            jti=claims.jti,
+        await self._refresh_token_repo.save(RefreshToken(
+            token_hash=token_hash,
             user_id=claims.subject,
             expires_at=claims.expires_at,
-        )
+        ))

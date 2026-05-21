@@ -13,7 +13,8 @@ from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RegisterResult, RegisterUseCase, TokenPair
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
-from app.domain.common.exceptions import BadRequestError, ConflictError
+from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
+from app.domain.users.entities import RefreshToken
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 # ---------------------------------------------------------------------------
@@ -51,20 +52,27 @@ class FakeTokenService(TokenService):
     def decode_token(self, token: str) -> Mapping[str, object]:
         return self._stored_claims[token]
 
+    def validate_refresh_token(self, token: str) -> str:
+        claims = self._stored_claims.get(token)
+        if not claims or claims.get("type") != "refresh":
+            raise UnauthorizedError(code="invalid_token", details="Invalid refresh token")
+        return str(claims["sub"])
+
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self) -> None:
-        self.persisted: dict[str, tuple[UUID, datetime]] = {}
-        self.revoked: set[str] = set()
+        self._store: dict[str, RefreshToken] = {}
 
-    async def is_revoked(self, jti: str) -> bool:
-        return jti in self.revoked
+    async def save(self, token: RefreshToken) -> None:
+        self._store[token.token_hash] = token
 
-    async def revoke(self, jti: str) -> None:
-        self.revoked.add(jti)
+    async def find_by_token_hash(self, token_hash: str) -> RefreshToken | None:
+        return self._store.get(token_hash)
 
-    async def persist(self, *, jti: str, user_id: UUID, expires_at: datetime) -> None:
-        self.persisted[jti] = (user_id, expires_at)
+    async def revoke(self, token_hash: str) -> None:
+        token = self._store.get(token_hash)
+        if token is not None and token.revoked_at is None:
+            token.revoked_at = datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -111,8 +119,8 @@ async def test_register_returns_result_with_user_and_token_pair() -> None:
 
     assert isinstance(result, RegisterResult)
     assert isinstance(result.tokens, TokenPair)
-    assert result.user is not None
-    assert result.user.id is not None
+    assert result.candidate is not None
+    assert result.candidate.id is not None
 
 
 @pytest.mark.asyncio
@@ -122,9 +130,9 @@ async def test_register_user_has_correct_identity_fields() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    assert str(result.user.email) == "thomas@example.com"
-    assert result.user.first_name == "Thomas"
-    assert result.user.last_name == "Dupont"
+    assert str(result.candidate.email) == "thomas@example.com"
+    assert result.candidate.first_name == "Thomas"
+    assert result.candidate.last_name == "Dupont"
 
 
 @pytest.mark.asyncio
@@ -134,10 +142,10 @@ async def test_register_password_is_hashed_not_plain() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    persisted = await user_repo.get_by_id(result.user.id)
+    persisted = await user_repo.get_by_id(result.candidate.id)
     assert persisted is not None
-    assert persisted.hashed_password != _VALID_ARGS["password"]
-    assert persisted.hashed_password == f"hashed:{_VALID_ARGS['password']}"
+    assert str(persisted.hashed_password) != _VALID_ARGS["password"]
+    assert str(persisted.hashed_password) == f"hashed:{_VALID_ARGS['password']}"
 
 
 @pytest.mark.asyncio
@@ -147,23 +155,23 @@ async def test_register_issues_access_token_and_refresh_token() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    user_id = str(result.user.id)
+    user_id = str(result.candidate.id)
     assert result.tokens.access_token == f"access-{user_id}"
     assert "refresh" in result.tokens.refresh_token
     assert result.tokens.token_type == "Bearer"
 
 
 @pytest.mark.asyncio
-async def test_register_persists_refresh_token_jti_in_repository() -> None:
-    """Le jti du refresh_token est persisté pour permettre rotation et révocation."""
+async def test_register_persists_refresh_token_in_repository() -> None:
+    """Le refresh_token est persisté (par hash) pour permettre rotation et révocation."""
     use_case, _, token_service, refresh_repo = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    assert len(refresh_repo.persisted) == 1
-    jti, (persisted_user_id, expires_at) = next(iter(refresh_repo.persisted.items()))
-    assert persisted_user_id == result.user.id
-    assert expires_at > datetime.now(UTC)
+    assert len(refresh_repo._store) == 1
+    stored = next(iter(refresh_repo._store.values()))
+    assert stored.user_id == result.candidate.id
+    assert stored.expires_at > datetime.now(UTC)
 
 
 @pytest.mark.asyncio
@@ -195,9 +203,9 @@ async def test_register_does_not_persist_refresh_token_on_conflict() -> None:
     """Aucun refresh_token n'est persisté si la création du Candidate échoue."""
     use_case, _, _, refresh_repo = _make_use_case()
     await use_case.execute(**_VALID_ARGS)
-    initial_count = len(refresh_repo.persisted)
+    initial_count = len(refresh_repo._store)
 
     with pytest.raises(ConflictError):
         await use_case.execute(**_VALID_ARGS)
 
-    assert len(refresh_repo.persisted) == initial_count
+    assert len(refresh_repo._store) == initial_count

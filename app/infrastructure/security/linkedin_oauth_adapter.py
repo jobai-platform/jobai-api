@@ -2,7 +2,7 @@ import logging
 
 import httpx
 
-from app.application.auth.ports import OAuthGateway
+from app.application.auth.ports import LinkedInOAuthGateway
 from app.domain.users.value_objects import LinkedInProfile
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ _AUTH_BASE_URL = "https://www.linkedin.com/oauth/v2/authorization"
 _SCOPES = "openid profile email"
 
 
-class LinkedInOAuthAdapter(OAuthGateway):
+class LinkedInOAuthAdapter(LinkedInOAuthGateway):
     """
     Concrete implementation of OAuthGateway for LinkedIn.
 

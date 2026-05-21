@@ -53,7 +53,10 @@ AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new Candidate account",
-    description="Create a Candidate account. Returns access_token in body; refresh_token via httpOnly cookie.",
+    description=(
+        "Create a Candidate account."
+        " Returns access_token in body; refresh_token via httpOnly cookie."
+    ),
 )
 async def register(
     body: RegisterRequest,

@@ -7,6 +7,7 @@ import pytest
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import LogoutUseCase
+from app.domain.common.exceptions import UnauthorizedError
 
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):
@@ -54,6 +55,12 @@ class FakeTokenService(TokenService):
 
     def decode_token(self, token: str) -> Mapping[str, object]:
         return self._claims_by_token[token]
+
+    def validate_refresh_token(self, token: str) -> str:
+        claims = self._claims_by_token.get(token)
+        if not claims or claims.get("type") != "refresh":
+            raise UnauthorizedError(code="invalid_token", details="Invalid refresh token")
+        return str(claims["sub"])
 
 
 @pytest.mark.asyncio

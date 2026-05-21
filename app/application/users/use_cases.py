@@ -6,11 +6,11 @@ from app.application.users.candidate_profile_ports import CandidateProfileReposi
 from app.application.users.ports import UserRepository, PasswordHasher
 from app.domain.common.exceptions import ConflictError, BadRequestError, NotFoundError
 from app.domain.users.candidate_profile import CandidateProfile
-from app.domain.users.entities import User
-from app.domain.users.value_objects import Email
+from app.domain.users.entities import Candidate
+from app.domain.users.value_objects import Email, HashedPassword
 
 
-class UserService:
+class CandidateService:
     """
     Application service (Use Cases) for Users Entity.
     - Orchestrates user-related operations.
@@ -47,22 +47,9 @@ class UserService:
         username: str | None = None,
         first_name: str | None = None,
         last_name: str | None = None,
-        stripe_customer_id: str | None = None,
         role: str | None = "user",
         is_active: bool | None = True,
-    ) -> User:
-        """
-        Registers a new user.
-        :param email: Email address of the user.
-        :param password: .
-        :param username: Username associated with the user.
-        :param first_name: First name of the user.
-        :param last_name: Last name of the user.
-        :param stripe_customer_id: Stripe customer ID.
-        :param role: Role of the user.
-        :param is_active: Whether the user is active.
-        :return: User object.
-        """
+    ) -> Candidate:
         email_vo = self._to_email_vo(email)
 
         if password is not None and len(password) < 8:
@@ -78,18 +65,18 @@ class UserService:
                 details="Email already exists.",
             )
 
-        hashed = self.pwd_hasher.hash_password(password) if password else None
+        hashed_raw = self.pwd_hasher.hash_password(password) if password else None
+        hashed_pw = HashedPassword(hashed_raw) if hashed_raw else None
 
-        user = User(
-            id = None,
-            email = email_vo,
-            username = username,
-            first_name = first_name,
-            last_name = last_name,
-            hashed_password = hashed,
-            stripe_customer_id = stripe_customer_id,
-            role= role,
-            is_active = is_active,
+        user = Candidate(
+            id=None,
+            email=email_vo,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            hashed_password=hashed_pw,
+            role=role,
+            is_active=is_active,
         )
 
         created = await self.repo.create(user)
@@ -105,7 +92,7 @@ class UserService:
         limit: int = 50,
         sort_by: str | None = None,
         ascending: bool | None = None,
-    ) -> Sequence[User]:
+    ) -> Sequence[Candidate]:
         """
         List users with pagination.
         :param skip: Number of records to skip for pagination.
@@ -119,7 +106,7 @@ class UserService:
         visible = [u for u in all_users if not getattr(u, "deletion", None) or not u.deletion.is_deleted]
         return visible
 
-    async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_user_by_id(self, user_id: UUID) -> Optional[Candidate]:
         """
         Get user by ID.
         :param user_id: User ID.
@@ -143,15 +130,15 @@ class UserService:
     async def update_user(
         self,
         user_id: UUID,
-        partial_user: User,
-    ) -> Optional[User]:
+        partial_candidate: Candidate,
+    ) -> Optional[Candidate]:
         """
         Update an existing user.
         :param user_id: User ID.
         :param partial_user: Partial user.
         :return: User object.
         """
-        updated = await self.repo.update(user_id, partial_user)
+        updated = await self.repo.update(user_id, partial_candidate)
         if not updated:
             raise NotFoundError(
                 code="user_not_found",

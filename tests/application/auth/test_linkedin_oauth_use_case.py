@@ -28,6 +28,9 @@ class FakeTokenService(TokenService):
     def decode_token(self, token: str) -> Mapping:
         return {}
 
+    def validate_refresh_token(self, token: str) -> str:
+        raise NotImplementedError
+
 
 def _make_profile(**kwargs) -> LinkedInProfile:
     defaults = dict(

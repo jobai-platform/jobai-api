@@ -5,9 +5,9 @@ from uuid import UUID
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.users.ports import PasswordHasher, UserRepository
-from app.application.users.use_cases import UserService
+from app.application.users.use_cases import CandidateService
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
 
 
@@ -75,7 +75,7 @@ def _decode_refresh_token(token_service: TokenService, refresh_token: str) -> Re
     return _parse_refresh_claims(claims)
 
 
-def _token_extra_from_user(user: User) -> dict[str, str]:
+def _token_extra_from_user(user: Candidate) -> dict[str, str]:
     return {
         "role": user.role,
         "email": str(user.email),
@@ -106,10 +106,10 @@ class AuthService:
         """
         email_vo = email if isinstance(email, Email) else Email.from_raw(email)
 
-        user: User | None = await self.user_repo.get_by_email(email_vo)
+        user: Candidate | None = await self.user_repo.get_by_email(email_vo)
         if (not user or
             not user.hashed_password or
-            not self.pwd_hasher.verify(password, user.hashed_password)
+            not self.pwd_hasher.verify(password, user.hashed_password.value)
         ):
             raise ValueError("Invalid credentials")
 
@@ -198,14 +198,14 @@ class LogoutUseCase:
 
 @dataclass
 class RegisterResult:
-    user: User
+    candidate: Candidate
     tokens: TokenPair
 
 
 class RegisterUseCase:
     def __init__(
         self,
-        user_service: UserService,
+        user_service: CandidateService,
         token_service: TokenService,
         refresh_token_repo: RefreshTokenRepository,
     ) -> None:
@@ -221,17 +221,17 @@ class RegisterUseCase:
         first_name: str,
         last_name: str,
     ) -> RegisterResult:
-        user = await self._user_service.register(
+        candidate = await self._user_service.register(
             email=email,
             password=password,
             first_name=first_name,
             last_name=last_name,
         )
-        tokens = self._issue_tokens(user)
-        await self._persist_refresh_token(user.id, tokens.refresh_token)
-        return RegisterResult(user=user, tokens=tokens)
+        tokens = self._issue_tokens(candidate)
+        await self._persist_refresh_token(candidate.id, tokens.refresh_token)
+        return RegisterResult(candidate=candidate, tokens=tokens)
 
-    def _issue_tokens(self, user: User) -> TokenPair:
+    def _issue_tokens(self, user: Candidate) -> TokenPair:
         subject = str(user.id)
         extra = _token_extra_from_user(user)
         return TokenPair(

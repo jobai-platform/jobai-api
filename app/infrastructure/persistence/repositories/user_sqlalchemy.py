@@ -6,34 +6,28 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.users.ports import UserRepository
-from app.domain.users.entities import User
-from app.domain.users.value_objects import Email
+from app.domain.users.entities import Candidate
+from app.domain.users.value_objects import Email, HashedPassword
 from app.infrastructure.persistence.models.user import UserModel
 from app.domain.common.deletion import DeletionInfo
 
 
-def _to_domain(row: UserModel) -> User:
-    """
-    Mapping ORM to Domain
-    :param row: User Model
-    :return: User Object.
-    """
+def _to_domain(row: UserModel) -> Candidate:
     deletion = DeletionInfo(
         is_deleted=bool(getattr(row, "is_deleted", False)),
         deleted_at=getattr(row, "deleted_at", None),
         scheduled_purge_at=getattr(row, "scheduled_purge_at", None),
     )
-
-    return User(
+    hp = row.hashed_password
+    return Candidate(
         id=row.id,
         email=Email.from_raw(row.email),
         username=row.username,
         first_name=row.first_name,
         last_name=row.last_name,
-        hashed_password=row.hashed_password,
+        hashed_password=HashedPassword(hp) if hp else None,
         role=row.role,
         is_active=row.is_active,
-        stripe_customer_id=row.stripe_customer_id,
         linkedin_id=getattr(row, "linkedin_id", None),
         avatar_url=getattr(row, "avatar_url", None),
         created_at=row.created_at,
@@ -49,7 +43,7 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: str | Email) -> Optional[User]:
+    async def get_by_email(self, email: str | Email) -> Optional[Candidate]:
         """
         Retrieve user by their email.
         :param email: User email.
@@ -63,7 +57,7 @@ class SqlAlchemyUserRepository(UserRepository):
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
 
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_by_id(self, user_id: UUID) -> Optional[Candidate]:
         """
         Retrieve user by their ID.
         :param user_id: User ID.
@@ -81,7 +75,7 @@ class SqlAlchemyUserRepository(UserRepository):
         limit: int = 50,
         sort_by: str | None = None,
         ascending: bool = True,
-    ) -> Sequence[User]:
+    ) -> Sequence[Candidate]:
         """
         List all users.
         :param skip: Number of items to skip.
@@ -100,7 +94,7 @@ class SqlAlchemyUserRepository(UserRepository):
         rows = result.scalars().all()
         return [_to_domain(row) for row in rows]
 
-    async def create(self, user: User) -> User:
+    async def create(self, user: Candidate) -> Candidate:
         """
         Create a new user.
         :param user: User object.
@@ -120,10 +114,9 @@ class SqlAlchemyUserRepository(UserRepository):
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
-            hashed_password=user.hashed_password,
+            hashed_password=user.hashed_password.value if user.hashed_password else None,
             role=user.role,
             is_active=user.is_active,
-            stripe_customer_id=user.stripe_customer_id,
             linkedin_id=user.linkedin_id,
             avatar_url=user.avatar_url,
         )
@@ -133,7 +126,7 @@ class SqlAlchemyUserRepository(UserRepository):
         await self.session.refresh(new_user)
         return _to_domain(new_user)
 
-    async def update(self, user_id: UUID, user: User) -> Optional[User]:
+    async def update(self, user_id: UUID, user: Candidate) -> Optional[Candidate]:
         """
         Update an existing user.
         :param user_id: User ID.
@@ -160,10 +153,9 @@ class SqlAlchemyUserRepository(UserRepository):
             "username": user.username or existing_row.username,
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,
-            "hashed_password": user.hashed_password or existing_row.hashed_password,
+            "hashed_password": (user.hashed_password.value if user.hashed_password else None) or existing_row.hashed_password,
             "role": user.role or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
-            "stripe_customer_id": user.stripe_customer_id or existing_row.stripe_customer_id,
             "linkedin_id": user.linkedin_id if user.linkedin_id is not None else existing_row.linkedin_id,
             "avatar_url": user.avatar_url if user.avatar_url is not None else existing_row.avatar_url,
         }
@@ -230,7 +222,7 @@ class SqlAlchemyUserRepository(UserRepository):
             await self.session.commit()
         return count
 
-    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[Candidate]:
         """Return the user with the given linkedin_id, or None."""
         result = await self.session.execute(
             select(UserModel).where(UserModel.linkedin_id == linkedin_id)

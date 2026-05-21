@@ -23,6 +23,7 @@ class RefreshTokenModel(Base):
         default=uuid.uuid4,
     )
     jti: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey(f"{DB_SCHEMA}.users.id", ondelete="CASCADE"),

@@ -7,6 +7,7 @@ from jose import jwt
 
 from app.application.auth.ports import TokenService
 from app.core.config import settings
+from app.domain.common.exceptions import UnauthorizedError
 
 
 @dataclass(frozen=True)
@@ -81,6 +82,15 @@ class JWTService:
     def decode_token(self, token: str) -> Mapping[str, any]:
         return self._decode(token)
 
+    def validate_refresh_token(self, token: str) -> str:
+        try:
+            claims = self._decode(token)
+        except Exception:
+            raise UnauthorizedError(code="invalid_token", details="Invalid or expired token")
+        if claims.get("type") != "refresh":
+            raise UnauthorizedError(code="invalid_token", details="Token is not a refresh token")
+        return str(claims["sub"])
+
 
 class JWTTokenServiceAdapter(TokenService):
     """
@@ -106,3 +116,6 @@ class JWTTokenServiceAdapter(TokenService):
 
     def decode_token(self, token: str) -> Mapping[str, any]:
         return self._service.decode_token(token)
+
+    def validate_refresh_token(self, token: str) -> str:
+        return self._service.validate_refresh_token(token)

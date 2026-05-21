@@ -79,7 +79,7 @@ async def register(
         path="/",
     )
     return RegisterResponse(
-        user=to_user_read(result.user),
+        user=to_user_read(result.candidate),
         access_token=result.tokens.access_token,
     )
 

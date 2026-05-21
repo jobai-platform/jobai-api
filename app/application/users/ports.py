@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 from datetime import datetime
 
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
 from app.domain.common.deletion import DeletionInfo
 
@@ -13,7 +13,7 @@ class UserRepository(ABC):
     Abstract base class that represents a user repository.
     """
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_by_id(self, user_id: UUID) -> Optional[Candidate]:
         """
         Get user by id.
         :param user_id: User id.
@@ -22,7 +22,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_email(self, email: Email) -> Optional[User]:
+    async def get_by_email(self, email: Email) -> Optional[Candidate]:
         """
         Get user by email.
         :param email: User email.
@@ -37,7 +37,7 @@ class UserRepository(ABC):
         limit: Optional[int] = 50,
         sort_by: Optional[str] = None,
         ascending: Optional[bool] = True,
-    ) -> Sequence[User]:
+    ) -> Sequence[Candidate]:
         """
         List all users.
         :return: List of users.
@@ -53,20 +53,20 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def create(self, user: User) -> User:
+    async def create(self, user: Candidate) -> User:
         """
         Create new user.
-        :param user: User object.
+        :param user: Candidate object.
         :return: User object.
         """
         raise NotImplementedError()
 
     @abstractmethod
-    async def update(self, user_id: UUID, user: User) -> Optional[User]:
+    async def update(self, user_id: UUID, user: Candidate) -> Optional[Candidate]:
         """
         Update user.
         :param user_id: User id.
-        :param user: User object.
+        :param user: Candidate object.
         :return: User object.
         """
         raise NotImplementedError()
@@ -92,7 +92,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[Candidate]:
         """Return the user whose linkedin_id matches, or None."""
         raise NotImplementedError()
 

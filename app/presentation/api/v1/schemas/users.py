@@ -8,7 +8,6 @@ class UserBase(BaseModel):
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    stripe_customer_id: str | None = None
     linkedin_id: str | None = None
     avatar_url: str | None = None
 
@@ -31,7 +30,6 @@ class UserUpdate(BaseModel):
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
-    stripe_customer_id: str | None = None
     is_active: bool | None = None
     role: str | None = None
 

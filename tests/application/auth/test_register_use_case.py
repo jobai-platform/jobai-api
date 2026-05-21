@@ -13,7 +13,7 @@ from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RegisterResult, RegisterUseCase, TokenPair
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
-from app.domain.common.exceptions import BadRequestError, ConflictError
+from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 # ---------------------------------------------------------------------------
@@ -50,6 +50,12 @@ class FakeTokenService(TokenService):
 
     def decode_token(self, token: str) -> Mapping[str, object]:
         return self._stored_claims[token]
+
+    def validate_refresh_token(self, token: str) -> str:
+        claims = self._stored_claims.get(token)
+        if not claims or claims.get("type") != "refresh":
+            raise UnauthorizedError(code="invalid_token", details="Invalid refresh token")
+        return str(claims["sub"])
 
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):

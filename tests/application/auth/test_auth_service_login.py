@@ -38,6 +38,9 @@ class FakeTokenService(TokenService):
     def decode_token(self, token: str) -> dict:
         return {}
 
+    def validate_refresh_token(self, token: str) -> str:
+        raise NotImplementedError
+
 
 @pytest.mark.asyncio
 async def test_login_success_returns_token_pair():

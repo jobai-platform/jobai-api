@@ -47,3 +47,12 @@ class LinkedInProfile:
         if not self.email:
             msg = "email cannot be empty"
             raise ValueError(msg)
+
+
+@dataclass(frozen=True, slots=True)
+class HashedPassword:
+    """Value Object wrapping a bcrypt/argon2 hash. Prevents passing plain text by mistake."""
+    value: str
+
+    def __str__(self) -> str:
+        return self.value

@@ -7,6 +7,14 @@ from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import
     SQLAlchemyRefreshTokenRepository,
 )
 
+_VALID_PASSWORD = "SecurePass1!"
+_VALID_PAYLOAD = {
+    "email": "candidate@example.com",
+    "password": _VALID_PASSWORD,
+    "first_name": "Thomas",
+    "last_name": "Dupont",
+}
+
 
 def _expires_at_from_claim(value: object) -> datetime:
     if isinstance(value, datetime):
@@ -100,3 +108,120 @@ async def test_refresh_without_cookie_returns_401(client):
 
     assert response.status_code == 401
     assert response.headers.get("www-authenticate") == "Bearer"
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/register
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_register_returns_201_with_access_token_and_httponly_cookie(client):
+    """201 + body contient access_token + cookie refresh_token httpOnly Secure SameSite=Lax."""
+    response = await client.post("/api/v1/auth/register", json=_VALID_PAYLOAD)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert "access_token" in body
+    assert body.get("token_type") == "Bearer"
+    assert "user" in body
+    assert body["user"]["email"] == "candidate@example.com"
+    set_cookie = response.headers["set-cookie"]
+    assert "refresh_token=" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Secure" in set_cookie
+    assert "SameSite=lax" in set_cookie.lower()
+    assert "Max-Age=604800" in set_cookie
+
+
+@pytest.mark.asyncio
+async def test_register_response_body_does_not_contain_refresh_token(client):
+    """Le refresh_token NE DOIT PAS apparaître dans le body — cookie uniquement."""
+    response = await client.post("/api/v1/auth/register", json=_VALID_PAYLOAD | {"email": "notoken@example.com"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert "refresh_token" not in body
+
+
+@pytest.mark.asyncio
+async def test_register_returns_409_on_duplicate_email(client, create_user_in_db):
+    """409 si l'email est déjà enregistré."""
+    await create_user_in_db("taken@example.com")
+
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "taken@example.com"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "user_already_exists"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_on_weak_password(client):
+    """422 si le mot de passe ne respecte pas D4 (≥12, maj, chiffre, spécial)."""
+    weak_passwords = [
+        "short1A!",          # < 12 chars
+        "nouppercase1!aaa",  # no uppercase
+        "NoDigitHere!!!a",   # no digit
+        "NoSpecialChar1a",   # no special char
+    ]
+    for pwd in weak_passwords:
+        response = await client.post(
+            "/api/v1/auth/register",
+            json=_VALID_PAYLOAD | {"email": f"weak{pwd[:4]}@example.com", "password": pwd},
+        )
+        assert response.status_code == 422, f"Expected 422 for password={pwd!r}, got {response.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_register_refresh_cookie_is_usable_for_subsequent_refresh(client):
+    """Le cookie refresh_token émis au register permet un appel /auth/refresh réussi."""
+    register_response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "refreshable@example.com"},
+    )
+    assert register_response.status_code == 201
+
+    refresh_response = await client.post("/api/v1/auth/refresh")
+
+    assert refresh_response.status_code == 200
+    body = refresh_response.json()
+    assert "access_token" in body
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_on_invalid_email(client):
+    """422 si l'email n'est pas un format valide."""
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "notanemail"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_when_first_name_is_missing(client):
+    """422 si first_name est absent du body."""
+    payload = {k: v for k, v in _VALID_PAYLOAD.items() if k != "first_name"}
+    payload["email"] = "nofirst@example.com"
+
+    response = await client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_when_last_name_is_missing(client):
+    """422 si last_name est absent du body."""
+    payload = {k: v for k, v in _VALID_PAYLOAD.items() if k != "last_name"}
+    payload["email"] = "nolast@example.com"
+
+    response = await client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"

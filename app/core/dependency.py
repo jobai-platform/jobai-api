@@ -20,7 +20,7 @@ from app.application.ai_analysis.use_cases import (
 )
 from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
 from app.application.auth.ports import RefreshTokenRepository
-from app.application.auth.use_cases import LogoutUseCase, RefreshTokenUseCase
+from app.application.auth.use_cases import LogoutUseCase, RefreshTokenUseCase, RegisterUseCase
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
@@ -153,6 +153,17 @@ def get_user_service(
         user_repo=repo,
         pwd_hasher=PasswordServiceAdapter(),
         profile_repo=profile_repo,
+    )
+
+
+def get_register_use_case(
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
+) -> RegisterUseCase:
+    return RegisterUseCase(
+        user_service=user_service,
+        token_service=JWTTokenServiceAdapter(),
+        refresh_token_repo=refresh_token_repo,
     )
 
 # ---------------------------------------------------------------------------
@@ -427,6 +438,7 @@ UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 RefreshTokenUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_token_use_case)]
 LogoutUseCaseDep = Annotated[LogoutUseCase, Depends(get_logout_use_case)]
+RegisterUseCaseDep = Annotated[RegisterUseCase, Depends(get_register_use_case)]
 SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
 AssignFreemiumDep = Annotated[
     AssignFreemiumOnSignupUseCase,

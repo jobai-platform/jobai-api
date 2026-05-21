@@ -104,7 +104,10 @@ class CandidateService:
         all_users = await self.repo.list_all(
             skip=skip, limit=limit, sort_by=sort_by, ascending=ascending
         )
-        visible = [u for u in all_users if not getattr(u, "deletion", None) or not u.deletion.is_deleted]  # noqa: E501
+        visible = [
+            u for u in all_users
+            if not getattr(u, "deletion", None) or not u.deletion.is_deleted
+        ]
         return visible
 
     async def get_user_by_id(self, user_id: UUID) -> Candidate | None:

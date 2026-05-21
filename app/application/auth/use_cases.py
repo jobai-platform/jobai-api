@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.users.ports import PasswordHasher, UserRepository
+from app.application.users.use_cases import UserService
 from app.domain.common.exceptions import UnauthorizedError
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email
@@ -193,3 +194,55 @@ class LogoutUseCase:
             await self._refresh_token_repo.revoke(claims.jti)
         except Exception:
             return None
+
+
+@dataclass
+class RegisterResult:
+    user: User
+    tokens: TokenPair
+
+
+class RegisterUseCase:
+    def __init__(
+        self,
+        user_service: UserService,
+        token_service: TokenService,
+        refresh_token_repo: RefreshTokenRepository,
+    ) -> None:
+        self._user_service = user_service
+        self._token_service = token_service
+        self._refresh_token_repo = refresh_token_repo
+
+    async def execute(
+        self,
+        *,
+        email: str,
+        password: str,
+        first_name: str,
+        last_name: str,
+    ) -> RegisterResult:
+        user = await self._user_service.register(
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        tokens = self._issue_tokens(user)
+        await self._persist_refresh_token(user.id, tokens.refresh_token)
+        return RegisterResult(user=user, tokens=tokens)
+
+    def _issue_tokens(self, user: User) -> TokenPair:
+        subject = str(user.id)
+        extra = _token_extra_from_user(user)
+        return TokenPair(
+            access_token=self._token_service.create_access_token(subject, extra),
+            refresh_token=self._token_service.create_refresh_token(subject, extra),
+        )
+
+    async def _persist_refresh_token(self, user_id: UUID, refresh_token: str) -> None:
+        claims = _decode_refresh_token(self._token_service, refresh_token)
+        await self._refresh_token_repo.persist(
+            jti=claims.jti,
+            user_id=claims.subject,
+            expires_at=claims.expires_at,
+        )

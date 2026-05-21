@@ -1,27 +1,26 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from app.domain.common.deletion import DeletionInfo
 from app.domain.users.value_objects import Email, LinkedInProfile
 
 
-@dataclass
+@dataclass(slots=True)
 class User:
-    id: Optional[UUID]
+    id: UUID | None
     email: Email
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    hashed_password: Optional[str] = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    hashed_password: str | None = None
     role: str = "user"
     is_active: bool = True
-    stripe_customer_id: Optional[str] = None
-    linkedin_id: Optional[str] = None
-    avatar_url: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    stripe_customer_id: str | None = None
+    linkedin_id: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     deletion: DeletionInfo = field(default_factory=DeletionInfo)
 
     def attach_linkedin(self, profile: "LinkedInProfile") -> None:

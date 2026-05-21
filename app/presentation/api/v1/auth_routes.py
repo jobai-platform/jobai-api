@@ -10,16 +10,20 @@ from app.core.dependency import (
     LinkedInOAuthUseCaseDep,
     LogoutUseCaseDep,
     RefreshTokenUseCaseDep,
+    RegisterUseCaseDep,
     UserRepositoryDep,
 )
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
+from app.presentation.api.mappers.users_mapper import to_user_read
 from app.presentation.api.v1.schemas.auth import (
     AccessTokenResponse,
     LinkedInAuthUrlResponse,
     LinkedInCallbackRequest,
     LinkedInCodeResponse,
+    RegisterRequest,
+    RegisterResponse,
     TokenPairSchema,
 )
 from app.presentation.security.deps import get_current_user_id
@@ -43,6 +47,42 @@ def get_auth_service(
     )
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new Candidate account",
+    description=(
+        "Create a Candidate account."
+        " Returns access_token in body; refresh_token via httpOnly cookie."
+    ),
+)
+async def register(
+    body: RegisterRequest,
+    response: Response,
+    use_case: RegisterUseCaseDep,
+) -> RegisterResponse:
+    result = await use_case.execute(
+        email=body.email,
+        password=body.password,
+        first_name=body.first_name,
+        last_name=body.last_name,
+    )
+    response.set_cookie(
+        REFRESH_TOKEN_COOKIE_NAME,
+        result.tokens.refresh_token,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return RegisterResponse(
+        user=to_user_read(result.user),
+        access_token=result.tokens.access_token,
+    )
+
 
 @router.post(
     "/token",

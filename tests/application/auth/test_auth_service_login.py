@@ -1,12 +1,12 @@
-from typing import Optional, Mapping
+from collections.abc import Mapping
+from typing import Optional
 
 import pytest
 
 from app.application.auth.ports import TokenService
-from app.application.auth.use_cases import AuthService
+from app.application.auth.use_cases import AuthService, TokenPair
 from app.domain.users.entities import User
-from app.domain.users.value_objects import Email
-from app.application.auth.use_cases import TokenPair
+from app.domain.users.value_objects import Email, HashedPassword
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 
@@ -24,14 +24,14 @@ class FakeTokenService(TokenService):
     def create_access_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Mapping[str, any] | None = None,
     ) -> str:
         return f"access-token-for-{subject}"
 
     def create_refresh_token(
         self,
         subject: str,
-        extra: Optional[Mapping[str, any]] = None,
+        extra: Mapping[str, any] | None = None,
     ) -> str:
         return f"refresh-token-for-{subject}"
 
@@ -58,7 +58,7 @@ async def test_login_success_returns_token_pair():
         User(
             id=None,
             email=Email.from_raw("user@example.com"),
-            hashed_password=pwd_hasher.hash_password("securepassword"),
+            hashed_password=HashedPassword(pwd_hasher.hash_password("securepassword")),
             role="user",
             is_active=True,
         )
@@ -108,7 +108,7 @@ async def test_login_fails_if_password_invalid():
         User(
             id=None,
             email=Email.from_raw("user@example.com"),
-            hashed_password=pwd_hasher.hash_password("secret"),
+            hashed_password=HashedPassword(pwd_hasher.hash_password("secret")),
             role="user",
             is_active=True,
         )
@@ -134,7 +134,7 @@ async def test_login_fails_if_user_inactive():
     user = User(
         id=None,
         email=Email.from_raw("inactive@example.com"),
-        hashed_password=pwd_hasher.hash_password("secret"),
+        hashed_password=HashedPassword(pwd_hasher.hash_password("secret")),
         role="user",
         is_active=False,
     )

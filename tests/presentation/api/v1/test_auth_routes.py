@@ -124,8 +124,13 @@ async def test_register_returns_201_with_access_token_and_httponly_cookie(client
     body = response.json()
     assert "access_token" in body
     assert body.get("token_type") == "Bearer"
-    assert "user" in body
-    assert body["user"]["email"] == "candidate@example.com"
+    user = body["user"]
+    assert user["email"] == "candidate@example.com"
+    assert user["first_name"] == "Thomas"
+    assert user["last_name"] == "Dupont"
+    assert user["role"] == "user"
+    assert user["is_active"] is True
+    assert "id" in user
     set_cookie = response.headers["set-cookie"]
     assert "refresh_token=" in set_cookie
     assert "HttpOnly" in set_cookie
@@ -222,6 +227,42 @@ async def test_register_returns_422_when_last_name_is_missing(client):
     payload["email"] = "nolast@example.com"
 
     response = await client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_on_empty_first_name(client):
+    """422 si first_name est une chaîne vide (min_length=1)."""
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "emptyfirst@example.com", "first_name": ""},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_on_empty_last_name(client):
+    """422 si last_name est une chaîne vide (min_length=1)."""
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "emptylast@example.com", "last_name": ""},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_returns_422_on_empty_password(client):
+    """422 si le mot de passe est une chaîne vide (déclenche toutes les règles D4)."""
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "emptypwd@example.com", "password": ""},
+    )
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"

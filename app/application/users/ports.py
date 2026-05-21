@@ -1,11 +1,11 @@
-from uuid import UUID
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence
+from collections.abc import Sequence
 from datetime import datetime
+from uuid import UUID
 
+from app.domain.common.deletion import DeletionInfo
 from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
-from app.domain.common.deletion import DeletionInfo
 
 
 class UserRepository(ABC):
@@ -13,7 +13,7 @@ class UserRepository(ABC):
     Abstract base class that represents a user repository.
     """
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> Optional[Candidate]:
+    async def get_by_id(self, user_id: UUID) -> Candidate | None:
         """
         Get user by id.
         :param user_id: User id.
@@ -22,7 +22,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def get_by_email(self, email: Email) -> Optional[Candidate]:
+    async def get_by_email(self, email: Email) -> Candidate | None:
         """
         Get user by email.
         :param email: User email.
@@ -33,10 +33,10 @@ class UserRepository(ABC):
     @abstractmethod
     async def list_all(
         self,
-        skip: Optional[int] = 0,
-        limit: Optional[int] = 50,
-        sort_by: Optional[str] = None,
-        ascending: Optional[bool] = True,
+        skip: int | None = 0,
+        limit: int | None = 50,
+        sort_by: str | None = None,
+        ascending: bool | None = True,
     ) -> Sequence[Candidate]:
         """
         List all users.
@@ -53,7 +53,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def create(self, user: Candidate) -> User:
+    async def create(self, user: Candidate) -> Candidate:
         """
         Create new user.
         :param user: Candidate object.
@@ -62,7 +62,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def update(self, user_id: UUID, user: Candidate) -> Optional[Candidate]:
+    async def update(self, user_id: UUID, user: Candidate) -> Candidate | None:
         """
         Update user.
         :param user_id: User id.
@@ -92,7 +92,7 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[Candidate]:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Candidate | None:
         """Return the user whose linkedin_id matches, or None."""
         raise NotImplementedError()
 

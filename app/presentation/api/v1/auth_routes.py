@@ -13,6 +13,7 @@ from app.core.dependency import (
     RegisterUseCaseDep,
     UserRepositoryDep,
 )
+from app.core.rate_limiting import limiter
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
@@ -48,6 +49,7 @@ def get_auth_service(
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
+
 @router.post(
     "/register",
     response_model=RegisterResponse,
@@ -58,7 +60,9 @@ AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
         " Returns access_token in body; refresh_token via httpOnly cookie."
     ),
 )
+@limiter.limit("5/minute")
 async def register(
+    request: Request,
     body: RegisterRequest,
     response: Response,
     use_case: RegisterUseCaseDep,

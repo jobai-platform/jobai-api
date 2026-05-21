@@ -27,7 +27,9 @@ class Candidate:
         if self.linkedin_id is not None and self.linkedin_id != profile.linkedin_id:
             raise ConflictError(
                 code="linkedin_already_attached",
-                details=f"Candidate already linked to a different LinkedIn account ({self.linkedin_id})",
+                details=(
+                    f"Candidate already linked to a different LinkedIn account ({self.linkedin_id})"
+                ),
             )
         self.linkedin_id = profile.linkedin_id
         self.avatar_url = profile.avatar_url
@@ -55,3 +57,7 @@ class RefreshToken:
     @property
     def is_valid(self) -> bool:
         return not self.is_revoked and not self.is_expired
+
+
+# Backwards-compatibility alias — remove once JOB-117 rename is complete
+User = Candidate

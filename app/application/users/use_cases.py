@@ -1,10 +1,10 @@
-from typing import Optional, Sequence
-from uuid import UUID
+from collections.abc import Sequence
 from datetime import datetime
+from uuid import UUID
 
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
-from app.application.users.ports import UserRepository, PasswordHasher
-from app.domain.common.exceptions import ConflictError, BadRequestError, NotFoundError
+from app.application.users.ports import PasswordHasher, UserRepository
+from app.domain.common.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.domain.users.candidate_profile import CandidateProfile
 from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email, HashedPassword
@@ -101,12 +101,13 @@ class CandidateService:
         :param ascending: Sort by ascending.
         :return: Collection of users.
         """
-        all_users = await self.repo.list_all(skip=skip, limit=limit, sort_by=sort_by, ascending=ascending)
-        # Exclude soft-deleted users by default
-        visible = [u for u in all_users if not getattr(u, "deletion", None) or not u.deletion.is_deleted]
+        all_users = await self.repo.list_all(
+            skip=skip, limit=limit, sort_by=sort_by, ascending=ascending
+        )
+        visible = [u for u in all_users if not getattr(u, "deletion", None) or not u.deletion.is_deleted]  # noqa: E501
         return visible
 
-    async def get_user_by_id(self, user_id: UUID) -> Optional[Candidate]:
+    async def get_user_by_id(self, user_id: UUID) -> Candidate | None:
         """
         Get user by ID.
         :param user_id: User ID.
@@ -131,7 +132,7 @@ class CandidateService:
         self,
         user_id: UUID,
         partial_candidate: Candidate,
-    ) -> Optional[Candidate]:
+    ) -> Candidate | None:
         """
         Update an existing user.
         :param user_id: User ID.
@@ -190,3 +191,6 @@ class CandidateService:
         """
         deleted_count = await self.repo.purge_older_than(cutoff)
         return deleted_count
+
+
+UserService = CandidateService

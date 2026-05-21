@@ -196,7 +196,7 @@ class LogoutUseCase:
             return None
 
 
-@dataclass
+@dataclass(slots=True)
 class RegisterResult:
     candidate: Candidate
     tokens: TokenPair

@@ -1,12 +1,12 @@
-from uuid import UUID, uuid4
-from typing import Optional, Sequence
+from collections.abc import Sequence
 from datetime import datetime
-from typing import List
+from typing import Optional
+from uuid import UUID, uuid4
 
 from app.application.users.ports import UserRepository
+from app.domain.common.deletion import DeletionInfo
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email
-from app.domain.common.deletion import DeletionInfo
 
 
 class InMemoryUserRepository(UserRepository):
@@ -20,10 +20,10 @@ class InMemoryUserRepository(UserRepository):
         self._users_by_email: dict[str, User] = {}
         self._users_by_linkedin_id: dict[str, User] = {}
 
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_by_id(self, user_id: UUID) -> User | None:
         return self._users_by_id.get(str(user_id))
 
-    async def get_by_email(self, email: Email) -> Optional[User]:
+    async def get_by_email(self, email: Email) -> User | None:
         email_str = str(email.value) if isinstance(email, Email) else str(email).strip().lower()
         return self._users_by_email.get(email_str)
 
@@ -48,7 +48,7 @@ class InMemoryUserRepository(UserRepository):
     async def count(self) -> int:
         return len(self._users_by_id)
 
-    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[User]:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> User | None:
         return self._users_by_linkedin_id.get(linkedin_id)
 
     async def create(self, user: User) -> User:
@@ -63,7 +63,6 @@ class InMemoryUserRepository(UserRepository):
             hashed_password=user.hashed_password,
             role=user.role,
             is_active=user.is_active,
-            stripe_customer_id=user.stripe_customer_id,
             linkedin_id=user.linkedin_id,
             avatar_url=user.avatar_url,
             created_at=user.created_at,
@@ -76,7 +75,7 @@ class InMemoryUserRepository(UserRepository):
             self._users_by_linkedin_id[created.linkedin_id] = created
         return created
 
-    async def update(self, user_id: UUID, user: User) -> Optional[User]:
+    async def update(self, user_id: UUID, user: User) -> User | None:
         key = str(user_id)
         existing = self._users_by_id.get(key)
         if not existing:
@@ -92,7 +91,6 @@ class InMemoryUserRepository(UserRepository):
             hashed_password=user.hashed_password if user.hashed_password is not None else existing.hashed_password,
             role=user.role or existing.role,
             is_active=user.is_active if user.is_active is not None else existing.is_active,
-            stripe_customer_id=user.stripe_customer_id if user.stripe_customer_id is not None else existing.stripe_customer_id,
             linkedin_id=user.linkedin_id if user.linkedin_id is not None else existing.linkedin_id,
             avatar_url=user.avatar_url if user.avatar_url is not None else existing.avatar_url,
             created_at=existing.created_at,
@@ -126,7 +124,6 @@ class InMemoryUserRepository(UserRepository):
             hashed_password=user.hashed_password,
             role=user.role,
             is_active=user.is_active,
-            stripe_customer_id=user.stripe_customer_id,
             created_at=user.created_at,
             updated_at=user.updated_at,
             deletion=deletion,
@@ -150,7 +147,6 @@ class InMemoryUserRepository(UserRepository):
             hashed_password=user.hashed_password,
             role=user.role,
             is_active=user.is_active,
-            stripe_customer_id=user.stripe_customer_id,
             created_at=user.created_at,
             updated_at=user.updated_at,
             deletion=DeletionInfo(),
@@ -161,7 +157,7 @@ class InMemoryUserRepository(UserRepository):
 
     async def purge_older_than(self, cutoff: datetime) -> int:
         # Remove users soft-deleted at or before cutoff
-        to_delete: List[str] = []
+        to_delete: list[str] = []
         for key, user in list(self._users_by_id.items()):
             d = getattr(user, "deletion", None)
             if d and d.is_deleted and d.deleted_at and d.deleted_at <= cutoff:

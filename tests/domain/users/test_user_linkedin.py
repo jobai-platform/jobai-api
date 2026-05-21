@@ -1,26 +1,28 @@
 import pytest
+
+from app.domain.common.exceptions import ConflictError
 from app.domain.users.entities import User
 from app.domain.users.value_objects import Email, LinkedInProfile
 
 
 def _make_user(**kwargs) -> User:
-    defaults = dict(
-        id=None,
-        email=Email.from_raw("alice@example.com"),
-        first_name="Alice",
-        last_name="Smith",
-    )
+    defaults = {
+        "id": None,
+        "email": Email.from_raw("alice@example.com"),
+        "first_name": "Alice",
+        "last_name": "Smith",
+    }
     return User(**{**defaults, **kwargs})
 
 
 def _make_profile(**kwargs) -> LinkedInProfile:
-    defaults = dict(
-        linkedin_id="li_abc123",
-        email="alice@example.com",
-        first_name="Alice",
-        last_name="Smith",
-        avatar_url="https://cdn.linkedin.com/alice.jpg",
-    )
+    defaults = {
+        "linkedin_id": "li_abc123",
+        "email": "alice@example.com",
+        "first_name": "Alice",
+        "last_name": "Smith",
+        "avatar_url": "https://cdn.linkedin.com/alice.jpg",
+    }
     return LinkedInProfile(**{**defaults, **kwargs})
 
 
@@ -78,7 +80,7 @@ def test_attach_linkedin_raises_if_different_id_already_attached():
     user = _make_user(linkedin_id="li_OTHER")
     profile = _make_profile(linkedin_id="li_abc123")
 
-    with pytest.raises(ValueError, match="different LinkedIn account"):
+    with pytest.raises(ConflictError, match="different LinkedIn account"):
         user.attach_linkedin(profile)
 
 

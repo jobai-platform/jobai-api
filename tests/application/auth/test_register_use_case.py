@@ -117,8 +117,8 @@ async def test_register_returns_result_with_user_and_token_pair() -> None:
 
     assert isinstance(result, RegisterResult)
     assert isinstance(result.tokens, TokenPair)
-    assert result.user is not None
-    assert result.user.id is not None
+    assert result.candidate is not None
+    assert result.candidate.id is not None
 
 
 @pytest.mark.asyncio
@@ -128,9 +128,9 @@ async def test_register_user_has_correct_identity_fields() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    assert str(result.user.email) == "thomas@example.com"
-    assert result.user.first_name == "Thomas"
-    assert result.user.last_name == "Dupont"
+    assert str(result.candidate.email) == "thomas@example.com"
+    assert result.candidate.first_name == "Thomas"
+    assert result.candidate.last_name == "Dupont"
 
 
 @pytest.mark.asyncio
@@ -140,10 +140,10 @@ async def test_register_password_is_hashed_not_plain() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    persisted = await user_repo.get_by_id(result.user.id)
+    persisted = await user_repo.get_by_id(result.candidate.id)
     assert persisted is not None
-    assert persisted.hashed_password != _VALID_ARGS["password"]
-    assert persisted.hashed_password == f"hashed:{_VALID_ARGS['password']}"
+    assert str(persisted.hashed_password) != _VALID_ARGS["password"]
+    assert str(persisted.hashed_password) == f"hashed:{_VALID_ARGS['password']}"
 
 
 @pytest.mark.asyncio
@@ -153,7 +153,7 @@ async def test_register_issues_access_token_and_refresh_token() -> None:
 
     result = await use_case.execute(**_VALID_ARGS)
 
-    user_id = str(result.user.id)
+    user_id = str(result.candidate.id)
     assert result.tokens.access_token == f"access-{user_id}"
     assert "refresh" in result.tokens.refresh_token
     assert result.tokens.token_type == "Bearer"
@@ -168,7 +168,7 @@ async def test_register_persists_refresh_token_jti_in_repository() -> None:
 
     assert len(refresh_repo.persisted) == 1
     jti, (persisted_user_id, expires_at) = next(iter(refresh_repo.persisted.items()))
-    assert persisted_user_id == result.user.id
+    assert persisted_user_id == result.candidate.id
     assert expires_at > datetime.now(UTC)
 
 

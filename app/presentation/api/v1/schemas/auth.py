@@ -58,10 +58,18 @@ class RefreshToken(BaseModel):
 class LinkedInCallbackRequest(BaseModel):
     code: str
     redirect_uri: str
+    state: str = Field(min_length=1)
 
 
 class LinkedInAuthUrlResponse(BaseModel):
     authorization_url: str
+    state: str  # frontend stores this in sessionStorage for CSRF verification
+
+
+class LinkedInCallbackResponse(BaseModel):
+    access_token: str
+    is_new_user: bool
+    token_type: str = "Bearer"
 
 
 class LinkedInCodeResponse(BaseModel):

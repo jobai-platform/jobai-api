@@ -1,18 +1,18 @@
 import pytest
 
 from app.domain.common.exceptions import ConflictError
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email, LinkedInProfile
 
 
-def _make_user(**kwargs) -> User:
+def _make_user(**kwargs) -> Candidate:
     defaults = {
         "id": None,
         "email": Email.from_raw("alice@example.com"),
         "first_name": "Alice",
         "last_name": "Smith",
     }
-    return User(**{**defaults, **kwargs})
+    return Candidate(**{**defaults, **kwargs})
 
 
 def _make_profile(**kwargs) -> LinkedInProfile:

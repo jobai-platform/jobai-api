@@ -18,6 +18,7 @@ from app.application.ai_analysis.use_cases import (
     IndexCandidateProfileUseCase,
     IndexJobPostingUseCase,
 )
+from app.application.auth.linkedin_callback_use_case import LinkedInCallbackUseCase
 from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
 from app.application.auth.ports import RefreshTokenRepository
 from app.application.auth.use_cases import LogoutUseCase, RefreshTokenUseCase, RegisterUseCase
@@ -305,13 +306,22 @@ def get_linkedin_oauth_adapter() -> LinkedInOAuthAdapter:
 
 def get_linkedin_oauth_use_case(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+) -> LinkedInOAuthUseCase:
+    return LinkedInOAuthUseCase(
+        oauth_gateway=get_linkedin_oauth_adapter(),
+        user_repo=user_repo,
+    )
+
+
+def get_linkedin_callback_use_case(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
     freemium: Annotated[
         AssignFreemiumOnSignupUseCase,
         Depends(get_assign_freemium_on_signup_use_case),
     ],
     profile_repo: Annotated[CandidateProfileRepository, Depends(get_candidate_profile_repository)],
-) -> LinkedInOAuthUseCase:
-    return LinkedInOAuthUseCase(
+) -> LinkedInCallbackUseCase:
+    return LinkedInCallbackUseCase(
         oauth_gateway=get_linkedin_oauth_adapter(),
         user_repo=user_repo,
         token_service=JWTTokenServiceAdapter(),
@@ -469,6 +479,7 @@ DeleteSearchAgentDep = Annotated[
 ]
 RunSearchAgentDep = Annotated[RunSearchAgentUseCase, Depends(get_run_search_agent_use_case)]
 LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
+LinkedInCallbackUseCaseDep = Annotated[LinkedInCallbackUseCase, Depends(get_linkedin_callback_use_case)]
 GetCandidateProfileDep = Annotated[
     GetCandidateProfileUseCase,
     Depends(get_candidate_profile_use_case),

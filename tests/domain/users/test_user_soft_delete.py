@@ -13,10 +13,10 @@ def test_user_soft_delete_sets_deletion_info_and_scheduled_purge():
 
     # Create a user domain instance (factory or constructor expected in domain layer)
     # We assume an immutable dataclass-style User with id, email, created_at and deletion info
-    from app.domain.users.entities import User
+    from app.domain.users.entities import Candidate
     from app.domain.users.value_objects import Email
 
-    user = User(id=user_id, email=Email.from_raw("user@example.com"), created_at=created_at)
+    user = Candidate(id=user_id, email=Email.from_raw("user@example.com"), created_at=created_at)
 
     # Precondition
     assert not user.deletion.is_deleted
@@ -43,9 +43,9 @@ def test_user_restore_clears_deletion_info():
     user_id = uuid4()
     created_at = datetime.now(timezone.utc) - timedelta(days=100)
 
-    from app.domain.users.entities import User
+    from app.domain.users.entities import Candidate
     from app.domain.users.value_objects import Email
-    user = User(id=user_id, email=Email.from_raw("user2@example.com"), created_at=created_at)
+    user = Candidate(id=user_id, email=Email.from_raw("user2@example.com"), created_at=created_at)
 
     from app.domain.common.domain_services import SoftDeleteService
     service = SoftDeleteService()

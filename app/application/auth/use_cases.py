@@ -21,6 +21,14 @@ class TokenPair:
 
 
 @dataclass(frozen=True)
+class LinkedInAuthResult:
+    access_token: str
+    refresh_token: str
+    is_new_user: bool
+    token_type: str = "Bearer"
+
+
+@dataclass(frozen=True)
 class RefreshTokenClaims:
     subject: UUID
     jti: str

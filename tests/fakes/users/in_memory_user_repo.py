@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from app.application.users.ports import UserRepository
 from app.domain.common.deletion import DeletionInfo
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
 
 
@@ -16,14 +16,14 @@ class InMemoryUserRepository(UserRepository):
     application-layer test without breaking instantiation.
     """
     def __init__(self) -> None:
-        self._users_by_id: dict[str, User] = {}
-        self._users_by_email: dict[str, User] = {}
-        self._users_by_linkedin_id: dict[str, User] = {}
+        self._users_by_id: dict[str, Candidate] = {}
+        self._users_by_email: dict[str, Candidate] = {}
+        self._users_by_linkedin_id: dict[str, Candidate] = {}
 
-    async def get_by_id(self, user_id: UUID) -> User | None:
+    async def get_by_id(self, user_id: UUID) -> Candidate | None:
         return self._users_by_id.get(str(user_id))
 
-    async def get_by_email(self, email: Email) -> User | None:
+    async def get_by_email(self, email: Email) -> Candidate | None:
         email_str = str(email.value) if isinstance(email, Email) else str(email).strip().lower()
         return self._users_by_email.get(email_str)
 
@@ -33,12 +33,12 @@ class InMemoryUserRepository(UserRepository):
         limit: int = 50,
         sort_by: str | None = None,
         ascending: bool | None = True,
-    ) -> Sequence[User]:
+    ) -> Sequence[Candidate]:
         # Deterministic order for tests
         users = list(self._users_by_id.values())
 
-        # Optional sorting (only if attribute exists on User)
-        if sort_by and hasattr(User, sort_by):
+        # Optional sorting (only if attribute exists on Candidate)
+        if sort_by and hasattr(Candidate, sort_by):
             users.sort(key=lambda u: getattr(u, sort_by) or "")
             if ascending is False:
                 users.reverse()
@@ -48,13 +48,13 @@ class InMemoryUserRepository(UserRepository):
     async def count(self) -> int:
         return len(self._users_by_id)
 
-    async def find_by_linkedin_id(self, linkedin_id: str) -> User | None:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Candidate | None:
         return self._users_by_linkedin_id.get(linkedin_id)
 
-    async def create(self, user: User) -> User:
+    async def create(self, user: Candidate) -> Candidate:
         new_id = uuid4()
 
-        created = User(
+        created = Candidate(
             id=new_id,
             email=user.email,
             username=user.username,
@@ -75,14 +75,14 @@ class InMemoryUserRepository(UserRepository):
             self._users_by_linkedin_id[created.linkedin_id] = created
         return created
 
-    async def update(self, user_id: UUID, user: User) -> User | None:
+    async def update(self, user_id: UUID, user: Candidate) -> Candidate | None:
         key = str(user_id)
         existing = self._users_by_id.get(key)
         if not existing:
             return None
 
         # Partial update semantics: keep existing values if incoming are None
-        updated = User(
+        updated = Candidate(
             id=existing.id,
             email=user.email or existing.email,
             username=user.username if user.username is not None else existing.username,
@@ -115,7 +115,7 @@ class InMemoryUserRepository(UserRepository):
         if not user:
             return None
 
-        updated = User(
+        updated = Candidate(
             id=user.id,
             email=user.email,
             username=user.username,
@@ -138,7 +138,7 @@ class InMemoryUserRepository(UserRepository):
         if not user:
             return None
 
-        restored = User(
+        restored = Candidate(
             id=user.id,
             email=user.email,
             username=user.username,

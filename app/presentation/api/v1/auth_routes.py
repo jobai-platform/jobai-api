@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.application.auth.use_cases import AuthService
 from app.core.dependency import (
+    LinkedInCallbackUseCaseDep,
     LinkedInOAuthUseCaseDep,
     LogoutUseCaseDep,
     RefreshTokenUseCaseDep,
@@ -22,6 +23,7 @@ from app.presentation.api.v1.schemas.auth import (
     AccessTokenResponse,
     LinkedInAuthUrlResponse,
     LinkedInCallbackRequest,
+    LinkedInCallbackResponse,
     LinkedInCodeResponse,
     RegisterRequest,
     RegisterResponse,
@@ -189,10 +191,10 @@ async def linkedin_auth_url(
     redirect_uri: str,
     use_case: LinkedInOAuthUseCaseDep,
 ) -> LinkedInAuthUrlResponse:
-    """Return the LinkedIn authorization URL for the frontend to redirect the user to."""
+    """Return the LinkedIn authorization URL and state token for CSRF verification."""
     state = secrets.token_urlsafe(16)
     url = use_case.build_authorization_url(redirect_uri=redirect_uri, state=state)
-    return LinkedInAuthUrlResponse(authorization_url=url)
+    return LinkedInAuthUrlResponse(authorization_url=url, state=state)
 
 
 @router.get(
@@ -215,27 +217,30 @@ async def linkedin_callback_get(code: str, state: str = "") -> LinkedInCodeRespo
 
 @router.post(
     "/linkedin/callback",
-    response_model=TokenPairSchema,
+    response_model=LinkedInCallbackResponse,
     status_code=status.HTTP_200_OK,
     summary="LinkedIn OAuth callback — exchange code for JWT",
 )
 async def linkedin_callback(
     body: LinkedInCallbackRequest,
-    use_case: LinkedInOAuthUseCaseDep,
-) -> TokenPairSchema:
-    """Exchange the LinkedIn authorization code for a JobAI JWT pair."""
-    try:
-        tokens = await use_case.execute(code=body.code, redirect_uri=body.redirect_uri)
-    except UnauthorizedError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=exc.details,
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
-    return TokenPairSchema(
-        access_token=tokens.access_token,
-        refresh_token=tokens.refresh_token,
-        token_type=tokens.token_type,
+    response: Response,
+    use_case: LinkedInCallbackUseCaseDep,
+) -> LinkedInCallbackResponse:
+    """Exchange the LinkedIn authorization code for a JWT. Sets refresh_token as httpOnly cookie."""
+    result = await use_case.execute(code=body.code, redirect_uri=body.redirect_uri)
+    response.set_cookie(
+        REFRESH_TOKEN_COOKIE_NAME,
+        result.refresh_token,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return LinkedInCallbackResponse(
+        access_token=result.access_token,
+        is_new_user=result.is_new_user,
+        token_type=result.token_type,
     )
 
 

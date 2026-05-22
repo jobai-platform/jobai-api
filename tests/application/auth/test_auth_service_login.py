@@ -5,7 +5,7 @@ import pytest
 
 from app.application.auth.ports import TokenService
 from app.application.auth.use_cases import AuthService, TokenPair
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email, HashedPassword
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
@@ -55,7 +55,7 @@ async def test_login_success_returns_token_pair():
 
     # Create a user to login with
     user = await user_repo.create(
-        User(
+        Candidate(
             id=None,
             email=Email.from_raw("user@example.com"),
             hashed_password=HashedPassword(pwd_hasher.hash_password("securepassword")),
@@ -105,7 +105,7 @@ async def test_login_fails_if_password_invalid():
 
     # Create a user to login with
     await user_repo.create(
-        User(
+        Candidate(
             id=None,
             email=Email.from_raw("user@example.com"),
             hashed_password=HashedPassword(pwd_hasher.hash_password("secret")),
@@ -131,7 +131,7 @@ async def test_login_fails_if_user_inactive():
         token_service=token_service
     )
 
-    user = User(
+    user = Candidate(
         id=None,
         email=Email.from_raw("inactive@example.com"),
         hashed_password=HashedPassword(pwd_hasher.hash_password("secret")),
@@ -158,7 +158,7 @@ async def test_login_fails_if_user_has_no_password():
         token_service=token_service
     )
 
-    user = User(
+    user = Candidate(
         id=None,
         email=Email.from_raw("nopass@example.com"),
         hashed_password=None,

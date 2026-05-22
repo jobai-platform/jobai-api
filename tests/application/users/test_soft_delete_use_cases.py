@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.application.users.use_cases import UserService
-from app.domain.users.entities import User
+from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
 from app.domain.common.deletion import DeletionInfo
 
@@ -15,7 +15,7 @@ async def test_soft_delete_use_case_calls_repo_soft_delete():
     email = Email.from_raw("user@example.com")
 
     fake_repo = AsyncMock()
-    fake_repo.get_by_id.return_value = User(id=user_id, email=email)
+    fake_repo.get_by_id.return_value = Candidate(id=user_id, email=email)
     fake_repo.soft_delete = AsyncMock()
 
     service = UserService(user_repo=fake_repo, pwd_hasher=AsyncMock())
@@ -32,7 +32,7 @@ async def test_restore_use_case_calls_repo_restore_only_if_deleted():
     email = Email.from_raw("user2@example.com")
 
     deleted_info = DeletionInfo(is_deleted=True, deleted_at=datetime.now(timezone.utc), scheduled_purge_at=datetime.now(timezone.utc) + timedelta(days=365))
-    deleted_user = User(id=user_id, email=email)
+    deleted_user = Candidate(id=user_id, email=email)
     deleted_user.deletion = deleted_info
 
     fake_repo = AsyncMock()

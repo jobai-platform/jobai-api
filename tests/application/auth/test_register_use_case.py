@@ -14,7 +14,7 @@ from app.application.auth.use_cases import RegisterResult, RegisterUseCase, Toke
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
 from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 # ---------------------------------------------------------------------------

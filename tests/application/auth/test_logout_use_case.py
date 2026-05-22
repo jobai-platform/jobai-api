@@ -5,7 +5,7 @@ import pytest
 
 from app.application.auth.ports import RefreshTokenRepository
 from app.application.auth.use_cases import LogoutUseCase
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):
@@ -17,6 +17,7 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
         from hashlib import sha256
         token_hash = sha256(token_raw.encode()).hexdigest()
         self._store[token_hash] = RefreshToken(
+            id=uuid4(),
             token_hash=token_hash,
             user_id=user_id or uuid4(),
             expires_at=datetime.now(UTC) + timedelta(days=7),

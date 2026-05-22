@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from app.application.auth.ports import RefreshTokenRepository
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 
 
 class InMemoryIRefreshTokenRepository(RefreshTokenRepository):

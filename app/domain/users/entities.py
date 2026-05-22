@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from app.domain.common.deletion import DeletionInfo
@@ -33,30 +33,6 @@ class Candidate:
             )
         self.linkedin_id = profile.linkedin_id
         self.avatar_url = profile.avatar_url
-
-
-@dataclass(slots=True)
-class RefreshToken:
-    """
-    Domain entity representing a persisted refresh token.
-    Keyed by token_hash (SHA-256 of the raw JWT string).
-    """
-    token_hash: str
-    user_id: UUID
-    expires_at: datetime
-    revoked_at: datetime | None = None
-
-    @property
-    def is_revoked(self) -> bool:
-        return self.revoked_at is not None
-
-    @property
-    def is_expired(self) -> bool:
-        return self.expires_at <= datetime.now(UTC)
-
-    @property
-    def is_valid(self) -> bool:
-        return not self.is_revoked and not self.is_expired
 
 
 # Backwards-compatibility alias — remove once JOB-117 rename is complete

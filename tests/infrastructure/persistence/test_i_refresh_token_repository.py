@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from app.domain.users.entities import RefreshToken
+from app.domain.users.refresh_token import RefreshToken
 from app.infrastructure.persistence.models.user import UserModel
 from app.infrastructure.persistence.repositories.i_refresh_token_sqlalchemy import (
     SQLAlchemyIRefreshTokenRepository,
@@ -31,6 +31,7 @@ async def seeded_user(db_session):
 
 def _make_token(user_id: uuid.UUID, *, expires_in_days: int = 7) -> RefreshToken:
     return RefreshToken(
+        id=uuid.uuid4(),
         token_hash=f"hash-{uuid.uuid4().hex}",
         user_id=user_id,
         expires_at=datetime.now(UTC) + timedelta(days=expires_in_days),

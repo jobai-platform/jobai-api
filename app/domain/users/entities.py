@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from app.domain.common.deletion import DeletionInfo
 from app.domain.common.exceptions import ConflictError
 from app.domain.users.value_objects import Email, HashedPassword, LinkedInProfile
+
+CandidateRole = Literal["user", "admin"]
 
 
 @dataclass(slots=True)
@@ -15,7 +18,7 @@ class Candidate:
     first_name: str | None = None
     last_name: str | None = None
     hashed_password: HashedPassword | None = None
-    role: str = "user"
+    role: CandidateRole = "user"
     is_active: bool = True
     linkedin_id: str | None = None
     avatar_url: str | None = None
@@ -33,7 +36,3 @@ class Candidate:
             )
         self.linkedin_id = profile.linkedin_id
         self.avatar_url = profile.avatar_url
-
-
-# Backwards-compatibility alias — remove once JOB-117 rename is complete
-User = Candidate

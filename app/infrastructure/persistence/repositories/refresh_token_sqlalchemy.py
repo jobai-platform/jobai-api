@@ -42,7 +42,8 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
 
 
 def _to_domain(model: RefreshTokenModel) -> RefreshToken:
-    assert model.token_hash is not None  # nullable only for legacy rows pre-migration c4a9e8b3
+    if model.token_hash is None:
+        raise ValueError(f"Legacy refresh_token row {model.id} has no token_hash — run migration c4a9e8b3")
     return RefreshToken(
         id=model.id,
         token_hash=model.token_hash,

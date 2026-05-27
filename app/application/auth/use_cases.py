@@ -244,9 +244,6 @@ class RegisterUseCase:
             first_name=first_name,
             last_name=last_name,
         )
-        # Both operations share the same SQLAlchemy session (injected via DI).
-        # A failure here rolls back the user creation too — atomicity is guaranteed
-        # by the session-scoped transaction, not by application code.
         await self._subscription_repo.create(Subscription.create_freemium(user_id=candidate.id))
         tokens = self._issue_tokens(candidate)
         await self._persist_refresh_token(candidate.id, tokens.refresh_token)

@@ -6,20 +6,22 @@ Layer : infrastructure
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from jose import jwt as jose_jwt
 
 from app.domain.common.exceptions import UnauthorizedError
 from app.infrastructure.security.jwt_service import JWTSettings, JWTService, JWTTokenServiceAdapter
 
+_TEST_SETTINGS = JWTSettings(
+    secret="test-secret-key",
+    algorithm="HS256",
+    access_token_expire_minutes=60,
+    refresh_token_expire_days=7,
+)
+
 
 @pytest.fixture
 def adapter() -> JWTTokenServiceAdapter:
-    settings = JWTSettings(
-        secret="test-secret-key",
-        algorithm="HS256",
-        access_token_expire_minutes=60,
-        refresh_token_expire_days=7,
-    )
-    return JWTTokenServiceAdapter(service=JWTService(cfg=settings))
+    return JWTTokenServiceAdapter(service=JWTService(cfg=_TEST_SETTINGS))
 
 
 class TestValidateRefreshToken:
@@ -48,3 +50,44 @@ class TestValidateRefreshToken:
         """Raises UnauthorizedError for an empty string."""
         with pytest.raises(UnauthorizedError):
             adapter.validate_refresh_token("")
+
+
+class TestRefreshTokenTTL:
+
+    def test_refresh_token_expires_in_days_not_minutes(self) -> None:
+        """Refresh token TTL doit être en jours (7 jours) — régression JOB-86."""
+        service = JWTService(cfg=_TEST_SETTINGS)
+        before = datetime.now(UTC)
+
+        token = service.create_refresh_token(subject="user-123")
+
+        claims = jose_jwt.decode(
+            token,
+            _TEST_SETTINGS.secret,
+            algorithms=[_TEST_SETTINGS.algorithm],
+            options={"verify_aud": False},
+        )
+        exp = datetime.fromtimestamp(claims["exp"], tz=UTC)
+        ttl = exp - before
+
+        assert ttl >= timedelta(days=6), f"TTL trop court : {ttl} (attendu ≥ 6 jours)"
+        assert ttl <= timedelta(days=8), f"TTL trop long : {ttl} (attendu ≤ 8 jours)"
+
+    def test_access_token_expires_in_minutes_not_days(self) -> None:
+        """Access token TTL doit rester en minutes (60 min) — vérification de non-régression."""
+        service = JWTService(cfg=_TEST_SETTINGS)
+        before = datetime.now(UTC)
+
+        token = service.create_access_token(subject="user-123")
+
+        claims = jose_jwt.decode(
+            token,
+            _TEST_SETTINGS.secret,
+            algorithms=[_TEST_SETTINGS.algorithm],
+            options={"verify_aud": False},
+        )
+        exp = datetime.fromtimestamp(claims["exp"], tz=UTC)
+        ttl = exp - before
+
+        assert ttl >= timedelta(minutes=59), f"Access TTL trop court : {ttl}"
+        assert ttl <= timedelta(minutes=61), f"Access TTL trop long : {ttl}"

@@ -39,4 +39,9 @@ def _get_session_factory() -> async_sessionmaker:
 async def get_async_session() -> AsyncIterator[AsyncSession]:
     """ FastAPI injection dependency """
     async with _get_session_factory()() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

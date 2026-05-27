@@ -50,7 +50,7 @@ class SubscriptionSQLAlchemyRepository(SubscriptionRepository):
             billing_price_id=str(subscription.billing_price_id) if subscription.billing_price_id else None,
         )
         self.session.add(model)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(model)
         return _to_domain(model)
 

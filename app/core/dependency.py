@@ -75,11 +75,11 @@ from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import
 from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy import (
     SQLAlchemyCandidateProfileRepository,
 )
-from app.infrastructure.persistence.repositories.i_refresh_token_sqlalchemy import (
-    SQLAlchemyIRefreshTokenRepository,
-)
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import (
     JobPostingSQLAlchemyRepository,
+)
+from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
+    SQLAlchemyRefreshTokenRepository,
 )
 from app.infrastructure.persistence.repositories.search_agent_sqlalchemy import (
     SQLAlchemySearchAgentRepository,
@@ -108,7 +108,7 @@ def get_user_repository(
 def get_refresh_token_repository(
     session: DbSession,
 ) -> RefreshTokenRepository:
-    return SQLAlchemyIRefreshTokenRepository(session=session)
+    return SQLAlchemyRefreshTokenRepository(session=session)
 
 
 def get_refresh_token_use_case(

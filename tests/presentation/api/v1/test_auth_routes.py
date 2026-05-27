@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.domain.users.refresh_token import RefreshToken
-from app.infrastructure.persistence.repositories.i_refresh_token_sqlalchemy import (
-    SQLAlchemyIRefreshTokenRepository,
+from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
+    SQLAlchemyRefreshTokenRepository,
 )
 
 _VALID_PASSWORD = "SecurePass1!"
@@ -29,7 +29,7 @@ def _expires_at_from_claim(value: object) -> datetime:
 async def _persist_refresh_token(db_session, jwt_service, user_id: UUID, token: str) -> None:
     claims = jwt_service.decode_token(token)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
-    repo = SQLAlchemyIRefreshTokenRepository(db_session)
+    repo = SQLAlchemyRefreshTokenRepository(db_session)
     await repo.save(RefreshToken(
         id=uuid4(),
         token_hash=token_hash,

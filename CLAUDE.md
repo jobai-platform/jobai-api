@@ -16,14 +16,20 @@ poetry run alembic upgrade head
 # Start dev server (hot reload)
 poetry run uvicorn app.main:app --reload
 
-# Run all tests
+# Run all tests (excludes integration tests — no DB required)
 poetry run pytest -q
+
+# Run integration tests only (requires PostgreSQL via docker-compose.dev.yml)
+poetry run pytest -m integration -q
+
+# Run ALL tests including integration
+poetry run pytest -m "" -q
 
 # Run by layer
 poetry run pytest tests/domain/ -q
 poetry run pytest tests/application/ -q
-poetry run pytest tests/infrastructure/ -q
-poetry run pytest tests/presentation/ -q
+poetry run pytest tests/infrastructure/ -q   # integration tests — requires DB
+poetry run pytest tests/presentation/ -q     # integration tests — requires DB
 
 # Run a single test file
 poetry run pytest tests/application/billing/test_use_cases.py -v

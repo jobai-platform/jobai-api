@@ -191,6 +191,7 @@ async def test_register_refresh_cookie_is_usable_for_subsequent_refresh(client):
     )
     assert register_response.status_code == 201
 
+    client.cookies.set("refresh_token", register_response.cookies.get("refresh_token"))
     refresh_response = await client.post("/api/v1/auth/refresh")
 
     assert refresh_response.status_code == 200

@@ -119,6 +119,18 @@ async def test_cascade_delete_removes_tokens_when_user_deleted(db_session, seede
 
 
 @pytest.mark.asyncio
+async def test_expired_token_roundtrip_preserves_is_expired(db_session, seeded_user) -> None:
+    """A token with expires_at in the past roundtrips correctly and is_expired returns True."""
+    repo = SQLAlchemyRefreshTokenRepository(db_session)
+    token = _make_token(seeded_user.id, expires_in_days=-1)
+    await repo.save(token)
+
+    found = await repo.find_by_token_hash(token.token_hash)
+    assert found is not None
+    assert found.is_expired is True
+
+
+@pytest.mark.asyncio
 async def test_save_duplicate_token_hash_raises_integrity_error(db_session, seeded_user) -> None:
     """Saving two tokens with the same token_hash violates the unique constraint."""
     repo = SQLAlchemyRefreshTokenRepository(db_session)

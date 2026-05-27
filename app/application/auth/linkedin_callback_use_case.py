@@ -1,4 +1,5 @@
 import logging
+from uuid import uuid4
 
 from app.application.auth.ports import LinkedInOAuthGateway, TokenService
 from app.application.auth.use_cases import LinkedInAuthResult, TokenPair
@@ -101,7 +102,7 @@ class LinkedInCallbackUseCase:
         # Branch 3 — new signup via LinkedIn
         logger.info("LinkedInCallback._resolve_user: [signup] email=%r", profile.email)
         new_user = Candidate(
-            id=None,
+            id=uuid4(),
             email=email_vo,
             first_name=profile.first_name,
             last_name=profile.last_name,

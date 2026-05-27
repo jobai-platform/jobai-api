@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email
 from app.presentation.api.v1.schemas.users import UserRead, UserUpdate
@@ -32,7 +34,7 @@ def to_domain_candidate(payload: UserUpdate) -> Candidate:
         email_vo = Email.from_raw(str(data["email"]))
 
     return Candidate(
-        id=None,
+        id=uuid4(),  # placeholder — repo.update() ignores this field, uses the route's user_id param
         email=email_vo,
         username=data.get("username"),
         first_name=data.get("first_name"),

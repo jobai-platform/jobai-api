@@ -5,8 +5,10 @@ import hashlib
 from uuid import UUID, uuid4
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
+from app.application.billing.ports import SubscriptionRepository
 from app.application.users.ports import PasswordHasher, UserRepository
 from app.application.users.use_cases import CandidateService
+from app.domain.billing.entities.subscription import Subscription
 from app.domain.common.exceptions import UnauthorizedError
 from app.domain.users.entities import Candidate
 from app.domain.users.refresh_token import RefreshToken
@@ -221,10 +223,12 @@ class RegisterUseCase:
         user_service: CandidateService,
         token_service: TokenService,
         refresh_token_repo: RefreshTokenRepository,
+        subscription_repo: SubscriptionRepository,
     ) -> None:
         self._user_service = user_service
         self._token_service = token_service
         self._refresh_token_repo = refresh_token_repo
+        self._subscription_repo = subscription_repo
 
     async def execute(
         self,
@@ -240,6 +244,7 @@ class RegisterUseCase:
             first_name=first_name,
             last_name=last_name,
         )
+        await self._subscription_repo.create(Subscription.create_freemium(user_id=candidate.id))
         tokens = self._issue_tokens(candidate)
         await self._persist_refresh_token(candidate.id, tokens.refresh_token)
         return RegisterResult(candidate=candidate, tokens=tokens)

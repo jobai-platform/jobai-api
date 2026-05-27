@@ -172,7 +172,7 @@ async def update_user(
 ) -> UserRead:
     updated_user = await service.update_user(
         user_id=user_id,
-        partial_user=to_domain_user(payload, user_id=user_id)
+        partial_candidate=to_domain_user(payload, user_id=user_id)
     )
     return to_user_read(updated_user)
 

@@ -1,12 +1,12 @@
 from collections.abc import Sequence
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.ports import PasswordHasher, UserRepository
 from app.domain.common.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.domain.users.candidate_profile import CandidateProfile
-from app.domain.users.entities import Candidate
+from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.value_objects import Email, HashedPassword
 
 
@@ -47,7 +47,7 @@ class CandidateService:
         username: str | None = None,
         first_name: str | None = None,
         last_name: str | None = None,
-        role: str | None = "user",
+        role: CandidateRole = CandidateRole.USER,
         is_active: bool | None = True,
     ) -> Candidate:
         email_vo = self._to_email_vo(email)
@@ -69,7 +69,7 @@ class CandidateService:
         hashed_pw = HashedPassword(hashed_raw) if hashed_raw else None
 
         user = Candidate(
-            id=None,
+            id=uuid4(),
             email=email_vo,
             username=username,
             first_name=first_name,

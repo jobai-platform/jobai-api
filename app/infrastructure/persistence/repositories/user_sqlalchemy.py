@@ -6,7 +6,7 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.users.ports import UserRepository
-from app.domain.users.entities import Candidate
+from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.value_objects import Email, HashedPassword
 from app.infrastructure.persistence.models.user import UserModel
 from app.domain.common.deletion import DeletionInfo
@@ -26,7 +26,7 @@ def _to_domain(row: UserModel) -> Candidate:
         first_name=row.first_name,
         last_name=row.last_name,
         hashed_password=HashedPassword(hp) if hp else None,
-        role=row.role,
+        role=CandidateRole(row.role) if row.role else CandidateRole.USER,
         is_active=row.is_active,
         linkedin_id=getattr(row, "linkedin_id", None),
         avatar_url=getattr(row, "avatar_url", None),
@@ -110,12 +110,13 @@ class SqlAlchemyUserRepository(UserRepository):
             email_val = None
 
         new_user = UserModel(
+            id=user.id,
             email=email_val,
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
             hashed_password=user.hashed_password.value if user.hashed_password else None,
-            role=user.role,
+            role=user.role.value if isinstance(user.role, CandidateRole) else user.role,
             is_active=user.is_active,
             linkedin_id=user.linkedin_id,
             avatar_url=user.avatar_url,

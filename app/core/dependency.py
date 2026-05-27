@@ -156,16 +156,6 @@ def get_user_service(
     )
 
 
-def get_register_use_case(
-    user_service: Annotated[UserService, Depends(get_user_service)],
-    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
-) -> RegisterUseCase:
-    return RegisterUseCase(
-        user_service=user_service,
-        token_service=JWTTokenServiceAdapter(),
-        refresh_token_repo=refresh_token_repo,
-    )
-
 # ---------------------------------------------------------------------------
 # Billing - factories
 # ---------------------------------------------------------------------------
@@ -173,6 +163,19 @@ def get_subscription_repository(
     session: DbSession,
 ) -> SubscriptionRepository:
     return SubscriptionSQLAlchemyRepository(session=session)
+
+
+def get_register_use_case(
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
+    subscription_repo: Annotated[SubscriptionRepository, Depends(get_subscription_repository)],
+) -> RegisterUseCase:
+    return RegisterUseCase(
+        user_service=user_service,
+        token_service=JWTTokenServiceAdapter(),
+        refresh_token_repo=refresh_token_repo,
+        subscription_repo=subscription_repo,
+    )
 
 def get_billing_price_repository(
     session: DbSession,

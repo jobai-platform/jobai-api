@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.application.users.ports import UserRepository
 from app.domain.common.deletion import DeletionInfo
@@ -52,28 +52,11 @@ class InMemoryUserRepository(UserRepository):
         return self._users_by_linkedin_id.get(linkedin_id)
 
     async def create(self, user: Candidate) -> Candidate:
-        new_id = uuid4()
-
-        created = Candidate(
-            id=new_id,
-            email=user.email,
-            username=user.username,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            hashed_password=user.hashed_password,
-            role=user.role,
-            is_active=user.is_active,
-            linkedin_id=user.linkedin_id,
-            avatar_url=user.avatar_url,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-        )
-
-        self._users_by_id[str(new_id)] = created
-        self._users_by_email[created.email.value] = created
-        if created.linkedin_id:
-            self._users_by_linkedin_id[created.linkedin_id] = created
-        return created
+        self._users_by_id[str(user.id)] = user
+        self._users_by_email[user.email.value] = user
+        if user.linkedin_id:
+            self._users_by_linkedin_id[user.linkedin_id] = user
+        return user
 
     async def update(self, user_id: UUID, user: Candidate) -> Candidate | None:
         key = str(user_id)

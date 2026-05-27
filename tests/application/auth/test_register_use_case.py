@@ -9,12 +9,18 @@ from uuid import UUID
 
 import pytest
 
+from typing import Optional
+
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RegisterResult, RegisterUseCase, TokenPair
+from app.application.billing.ports import SubscriptionRepository
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
+from app.domain.billing.entities.subscription import Subscription
+from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
 from app.domain.users.refresh_token import RefreshToken
+from tests.fakes.billing.in_memory_subscription_repo import InMemorySubscriptionRepository
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
 # ---------------------------------------------------------------------------
@@ -75,6 +81,22 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
             token.revoked_at = datetime.now(UTC)
 
 
+class BrokenSubscriptionRepository(SubscriptionRepository):
+    """Fake that always fails on create — used to test error propagation."""
+
+    async def get_by_user_id(self, user_id) -> Optional[Subscription]:
+        return None
+
+    async def get_by_stripe_subscription_id(self, stripe_subscription_id: str) -> Optional[Subscription]:
+        return None
+
+    async def create(self, subscription: Subscription) -> Subscription:
+        raise RuntimeError("Subscription storage unavailable")
+
+    async def update(self, subscription: Subscription) -> Optional[Subscription]:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -84,17 +106,20 @@ def _make_use_case(
     user_repo: InMemoryUserRepository | None = None,
     token_service: FakeTokenService | None = None,
     refresh_repo: FakeRefreshTokenRepository | None = None,
-) -> tuple[RegisterUseCase, InMemoryUserRepository, FakeTokenService, FakeRefreshTokenRepository]:
+    subscription_repo: InMemorySubscriptionRepository | None = None,
+) -> tuple[RegisterUseCase, InMemoryUserRepository, FakeTokenService, FakeRefreshTokenRepository, InMemorySubscriptionRepository]:
     user_repo = user_repo or InMemoryUserRepository()
     token_service = token_service or FakeTokenService()
     refresh_repo = refresh_repo or FakeRefreshTokenRepository()
+    subscription_repo = subscription_repo or InMemorySubscriptionRepository()
     user_service = UserService(user_repo=user_repo, pwd_hasher=FakePasswordHasher())
     use_case = RegisterUseCase(
         user_service=user_service,
         token_service=token_service,
         refresh_token_repo=refresh_repo,
+        subscription_repo=subscription_repo,
     )
-    return use_case, user_repo, token_service, refresh_repo
+    return use_case, user_repo, token_service, refresh_repo, subscription_repo
 
 
 _VALID_ARGS = {
@@ -113,7 +138,7 @@ _VALID_ARGS = {
 @pytest.mark.asyncio
 async def test_register_returns_result_with_user_and_token_pair() -> None:
     """Le use case crée un Candidate et retourne RegisterResult(user, tokens)."""
-    use_case, _, _, _ = _make_use_case()
+    use_case, *_ = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
@@ -126,7 +151,7 @@ async def test_register_returns_result_with_user_and_token_pair() -> None:
 @pytest.mark.asyncio
 async def test_register_user_has_correct_identity_fields() -> None:
     """Le Candidate créé porte bien email, first_name et last_name."""
-    use_case, _, _, _ = _make_use_case()
+    use_case, *_ = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
@@ -138,7 +163,7 @@ async def test_register_user_has_correct_identity_fields() -> None:
 @pytest.mark.asyncio
 async def test_register_password_is_hashed_not_plain() -> None:
     """Le mot de passe est hashé — il n'est jamais stocké en clair."""
-    use_case, user_repo, _, _ = _make_use_case()
+    use_case, user_repo, *_ = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
@@ -151,7 +176,7 @@ async def test_register_password_is_hashed_not_plain() -> None:
 @pytest.mark.asyncio
 async def test_register_issues_access_token_and_refresh_token() -> None:
     """Les tokens sont bien générés pour le Candidate nouvellement créé."""
-    use_case, _, _, _ = _make_use_case()
+    use_case, *_ = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
@@ -164,7 +189,7 @@ async def test_register_issues_access_token_and_refresh_token() -> None:
 @pytest.mark.asyncio
 async def test_register_persists_refresh_token_in_repository() -> None:
     """Le refresh_token est persisté (par hash) pour permettre rotation et révocation."""
-    use_case, _, token_service, refresh_repo = _make_use_case()
+    use_case, _, token_service, refresh_repo, _ = _make_use_case()
 
     result = await use_case.execute(**_VALID_ARGS)
 
@@ -177,7 +202,7 @@ async def test_register_persists_refresh_token_in_repository() -> None:
 @pytest.mark.asyncio
 async def test_register_raises_conflict_on_duplicate_email() -> None:
     """ConflictError si le même email est déjà enregistré."""
-    use_case, _, _, _ = _make_use_case()
+    use_case, *_ = _make_use_case()
     await use_case.execute(**_VALID_ARGS)
 
     with pytest.raises(ConflictError):
@@ -187,7 +212,7 @@ async def test_register_raises_conflict_on_duplicate_email() -> None:
 @pytest.mark.asyncio
 async def test_register_raises_bad_request_on_short_password() -> None:
     """BadRequestError si le mot de passe fait moins de 8 caractères (validation application)."""
-    use_case, _, _, _ = _make_use_case()
+    use_case, *_ = _make_use_case()
 
     with pytest.raises(BadRequestError):
         await use_case.execute(
@@ -201,7 +226,7 @@ async def test_register_raises_bad_request_on_short_password() -> None:
 @pytest.mark.asyncio
 async def test_register_does_not_persist_refresh_token_on_conflict() -> None:
     """Aucun refresh_token n'est persisté si la création du Candidate échoue."""
-    use_case, _, _, refresh_repo = _make_use_case()
+    use_case, _, _, refresh_repo, _ = _make_use_case()
     await use_case.execute(**_VALID_ARGS)
     initial_count = len(refresh_repo._store)
 
@@ -209,3 +234,26 @@ async def test_register_does_not_persist_refresh_token_on_conflict() -> None:
         await use_case.execute(**_VALID_ARGS)
 
     assert len(refresh_repo._store) == initial_count
+
+
+@pytest.mark.asyncio
+async def test_register_assigns_freemium_subscription() -> None:
+    """Subscription plan=FREEMIUM active est créée pour le Candidate — vérifiée via FakeRepository."""
+    use_case, _, _, _, subscription_repo = _make_use_case()
+
+    result = await use_case.execute(**_VALID_ARGS)
+
+    subscription = await subscription_repo.get_by_user_id(result.candidate.id)
+    assert subscription is not None
+    assert subscription.plan == Plan.FREEMIUM
+    assert subscription.status == SubscriptionStatus.ACTIVE
+    assert subscription.user_id == result.candidate.id
+
+
+@pytest.mark.asyncio
+async def test_register_does_not_return_result_if_freemium_assignment_fails() -> None:
+    """Si l'assignation Freemium échoue, le use case propage l'erreur — pas de RegisterResult retourné."""
+    use_case, *_ = _make_use_case(subscription_repo=BrokenSubscriptionRepository())
+
+    with pytest.raises(RuntimeError, match="Subscription storage unavailable"):
+        await use_case.execute(**_VALID_ARGS)

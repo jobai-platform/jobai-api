@@ -1,10 +1,12 @@
+import hashlib
 from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 import pytest
 
-from app.application.auth.use_cases import RefreshTokenClaims
-from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
-    SQLAlchemyRefreshTokenRepository,
+from app.domain.users.refresh_token import RefreshToken
+from app.infrastructure.persistence.repositories.i_refresh_token_sqlalchemy import (
+    SQLAlchemyIRefreshTokenRepository,
 )
 
 _VALID_PASSWORD = "SecurePass1!"
@@ -24,16 +26,16 @@ def _expires_at_from_claim(value: object) -> datetime:
     raise TypeError("Unsupported exp claim")
 
 
-async def _persist_refresh_token(db_session, jwt_service, user_id, token: str) -> RefreshTokenClaims:
+async def _persist_refresh_token(db_session, jwt_service, user_id: UUID, token: str) -> None:
     claims = jwt_service.decode_token(token)
-    refresh_claims = RefreshTokenClaims(
-        subject=user_id,
-        jti=str(claims["jti"]),
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    repo = SQLAlchemyIRefreshTokenRepository(db_session)
+    await repo.save(RefreshToken(
+        id=uuid4(),
+        token_hash=token_hash,
+        user_id=user_id,
         expires_at=_expires_at_from_claim(claims["exp"]),
-    )
-    repo = SQLAlchemyRefreshTokenRepository(db_session)
-    await repo.persist(jti=refresh_claims.jti, user_id=refresh_claims.subject, expires_at=refresh_claims.expires_at)
-    return refresh_claims
+    ))
 
 
 @pytest.mark.asyncio
@@ -135,7 +137,7 @@ async def test_register_returns_201_with_access_token_and_httponly_cookie(client
     assert "refresh_token=" in set_cookie
     assert "HttpOnly" in set_cookie
     assert "Secure" in set_cookie
-    assert "SameSite=lax" in set_cookie.lower()
+    assert "samesite=lax" in set_cookie.lower()
     assert "Max-Age=604800" in set_cookie
 
 
@@ -266,3 +268,28 @@ async def test_register_returns_422_on_empty_password(client):
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_register_assigns_freemium_subscription(client, db_session):
+    """Après inscription, une Subscription plan=FREEMIUM active est créée pour le Candidate."""
+    from uuid import UUID
+    from app.domain.billing.enums import Plan, SubscriptionStatus
+    from app.infrastructure.persistence.repositories.subscription_sqlalchemy import (
+        SubscriptionSQLAlchemyRepository,
+    )
+
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "freemium@example.com"},
+    )
+
+    assert response.status_code == 201
+    user_id = UUID(response.json()["user"]["id"])
+
+    sub_repo = SubscriptionSQLAlchemyRepository(db_session)
+    subscription = await sub_repo.get_by_user_id(user_id)
+
+    assert subscription is not None
+    assert subscription.plan == Plan.FREEMIUM
+    assert subscription.status == SubscriptionStatus.ACTIVE

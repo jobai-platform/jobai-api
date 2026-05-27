@@ -8,7 +8,7 @@ import pytest
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RefreshTokenUseCase, TokenPair
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import Candidate
+from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
@@ -118,7 +118,7 @@ async def test_refresh_raises_unauthorized_when_token_is_malformed() -> None:
 @pytest.mark.asyncio
 async def test_refresh_raises_unauthorized_when_token_is_expired() -> None:
     user_repo = InMemoryUserRepository()
-    user = await user_repo.create(Candidate(id=None, email=Email.from_raw("user@example.com")))
+    user = await user_repo.create(Candidate(id=uuid4(), email=Email.from_raw("user@example.com")))
     token_service = FakeTokenService()
     token_service.add_refresh_token(
         "expired-token",
@@ -160,7 +160,7 @@ async def test_refresh_raises_unauthorized_when_user_is_inactive() -> None:
 @pytest.mark.asyncio
 async def test_refresh_token_raises_unauthorized_when_token_is_revoked() -> None:
     user_repo = InMemoryUserRepository()
-    user = await user_repo.create(Candidate(id=None, email=Email.from_raw("user@example.com")))
+    user = await user_repo.create(Candidate(id=uuid4(), email=Email.from_raw("user@example.com")))
     token_service = FakeTokenService()
     token_service.add_refresh_token("old-refresh-token", subject=str(user.id), jti="old-jti")
     refresh_repo = FakeRefreshTokenRepository()
@@ -178,7 +178,7 @@ async def test_refresh_token_raises_unauthorized_when_token_is_revoked() -> None
 @pytest.mark.asyncio
 async def test_refresh_raises_unauthorized_when_token_not_in_store() -> None:
     user_repo = InMemoryUserRepository()
-    user = await user_repo.create(Candidate(id=None, email=Email.from_raw("user@example.com")))
+    user = await user_repo.create(Candidate(id=uuid4(), email=Email.from_raw("user@example.com")))
     token_service = FakeTokenService()
     token_service.add_refresh_token("unknown-token", subject=str(user.id), jti="some-jti")
     refresh_repo = FakeRefreshTokenRepository()
@@ -197,9 +197,9 @@ async def test_refresh_token_rotates_old_token_and_persists_new_token() -> None:
     user_repo = InMemoryUserRepository()
     user = await user_repo.create(
         Candidate(
-            id=None,
+            id=uuid4(),
             email=Email.from_raw("user@example.com"),
-            role="user",
+            role=CandidateRole.USER,
             is_active=True,
         ),
     )

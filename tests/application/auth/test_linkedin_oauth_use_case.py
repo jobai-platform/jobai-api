@@ -2,6 +2,8 @@
 Tests for LinkedInOAuthUseCase (authorization URL + account linking).
 Callback OAuth flow tests live in test_linkedin_callback_use_case.py.
 """
+from uuid import uuid4
+
 import pytest
 from unittest.mock import AsyncMock
 
@@ -56,7 +58,7 @@ def test_build_authorization_url_delegates_to_gateway():
 async def test_link_to_existing_user_attaches_linkedin_id():
     repo = InMemoryUserRepository()
     existing = await repo.create(Candidate(
-        id=None,
+        id=uuid4(),
         email=Email.from_raw("alice@example.com"),
         hashed_password="hashed-secret",
     ))
@@ -81,12 +83,12 @@ async def test_link_to_existing_user_attaches_linkedin_id():
 async def test_link_to_existing_user_raises_conflict_if_linkedin_id_taken_by_other():
     repo = InMemoryUserRepository()
     await repo.create(Candidate(
-        id=None,
+        id=uuid4(),
         email=Email.from_raw("other@example.com"),
         linkedin_id="li_abc123",
     ))
     target = await repo.create(Candidate(
-        id=None,
+        id=uuid4(),
         email=Email.from_raw("alice@example.com"),
         hashed_password="hashed-secret",
     ))

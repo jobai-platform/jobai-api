@@ -4,7 +4,7 @@ from app.application.auth.ports import RefreshTokenRepository
 from app.domain.users.refresh_token import RefreshToken
 
 
-class InMemoryIRefreshTokenRepository(RefreshTokenRepository):
+class InMemoryRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self) -> None:
         self._store: dict[str, RefreshToken] = {}
 

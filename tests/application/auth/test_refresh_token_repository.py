@@ -1,5 +1,5 @@
 """
-Tests TDD pour IRefreshTokenRepository port (validated via InMemoryIRefreshTokenRepository)
+Tests TDD pour RefreshTokenRepository port (validated via InMemoryRefreshTokenRepository)
 Bounded Context : users-auth
 Layer : application
 """
@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 
 from app.domain.users.refresh_token import RefreshToken
-from tests.fakes.auth.in_memory_refresh_token_repo import InMemoryIRefreshTokenRepository
+from tests.fakes.auth.in_memory_refresh_token_repo import InMemoryRefreshTokenRepository
 
 
 def _make_token(*, expires_in_days: int = 7, revoked: bool = False) -> RefreshToken:
@@ -27,7 +27,7 @@ class TestSave:
     @pytest.mark.asyncio
     async def test_save_persists_token(self) -> None:
         """Saved token can be retrieved by its hash."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
         token = _make_token()
 
         await repo.save(token)
@@ -43,7 +43,7 @@ class TestFindByTokenHash:
     @pytest.mark.asyncio
     async def test_returns_none_for_unknown_hash(self) -> None:
         """Returns None when the hash has never been saved."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
 
         result = await repo.find_by_token_hash("nonexistent-hash")
 
@@ -52,7 +52,7 @@ class TestFindByTokenHash:
     @pytest.mark.asyncio
     async def test_returns_token_after_save(self) -> None:
         """Returns the exact token that was saved."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
         token = _make_token()
         await repo.save(token)
 
@@ -63,7 +63,7 @@ class TestFindByTokenHash:
     @pytest.mark.asyncio
     async def test_returns_revoked_token(self) -> None:
         """A revoked token is still findable — callers check is_valid."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
         token = _make_token(revoked=True)
         await repo.save(token)
 
@@ -78,7 +78,7 @@ class TestRevoke:
     @pytest.mark.asyncio
     async def test_revoke_marks_token_as_revoked(self) -> None:
         """After revoke, find_by_token_hash returns a revoked token."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
         token = _make_token()
         await repo.save(token)
 
@@ -91,7 +91,7 @@ class TestRevoke:
     @pytest.mark.asyncio
     async def test_revoke_is_idempotent(self) -> None:
         """Revoking the same token twice does not raise."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
         token = _make_token()
         await repo.save(token)
 
@@ -105,6 +105,6 @@ class TestRevoke:
     @pytest.mark.asyncio
     async def test_revoke_unknown_hash_does_not_raise(self) -> None:
         """Revoking a hash that was never saved is a no-op."""
-        repo = InMemoryIRefreshTokenRepository()
+        repo = InMemoryRefreshTokenRepository()
 
         await repo.revoke("never-saved-hash")

@@ -1,40 +1,51 @@
 from datetime import UTC, datetime
-from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.auth.ports import RefreshTokenRepository
+from app.domain.users.refresh_token import RefreshToken
 from app.infrastructure.persistence.models.refresh_token import RefreshTokenModel
 
 
-class SQLAlchemyRefreshTokenRepository:
+class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def is_revoked(self, jti: str) -> bool:
-        result = await self._session.execute(
-            select(RefreshTokenModel).where(RefreshTokenModel.jti == jti)
+    async def save(self, token: RefreshToken) -> None:
+        self._session.add(
+            RefreshTokenModel(
+                jti=token.token_hash,  # jti column still required (NOT NULL) — use hash as fallback
+                token_hash=token.token_hash,
+                user_id=token.user_id,
+                expires_at=token.expires_at,
+                revoked_at=token.revoked_at,
+            )
         )
-        token = result.scalars().one_or_none()
-        if token is None:
-            return True
-        return token.revoked_at is not None or token.expires_at <= datetime.now(UTC)
+        await self._session.commit()
 
-    async def revoke(self, jti: str) -> None:
+    async def find_by_token_hash(self, token_hash: str) -> RefreshToken | None:
+        result = await self._session.execute(
+            select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
+        )
+        model = result.scalars().one_or_none()
+        return _to_domain(model) if model is not None else None
+
+    async def revoke(self, token_hash: str) -> None:
         await self._session.execute(
             update(RefreshTokenModel)
-            .where(RefreshTokenModel.jti == jti)
+            .where(RefreshTokenModel.token_hash == token_hash)
             .where(RefreshTokenModel.revoked_at.is_(None))
             .values(revoked_at=datetime.now(UTC))
         )
         await self._session.commit()
 
-    async def persist(self, *, jti: str, user_id: UUID, expires_at: datetime) -> None:
-        self._session.add(
-            RefreshTokenModel(
-                jti=jti,
-                user_id=user_id,
-                expires_at=expires_at,
-            )
-        )
-        await self._session.commit()
+
+def _to_domain(model: RefreshTokenModel) -> RefreshToken:
+    return RefreshToken(
+        id=model.id,
+        token_hash=model.token_hash,
+        user_id=model.user_id,
+        expires_at=model.expires_at,
+        revoked_at=model.revoked_at,
+    )

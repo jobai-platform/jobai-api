@@ -21,7 +21,7 @@ class Candidate:
     first_name: str | None = None
     last_name: str | None = None
     hashed_password: HashedPassword | None = None
-    role: CandidateRole = CandidateRole.USER
+    role: CandidateRole | None = CandidateRole.USER
     is_active: bool = True
     linkedin_id: str | None = None
     avatar_url: str | None = None

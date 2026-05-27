@@ -10,7 +10,7 @@ from app.core.dependency import (
     AssignFreemiumDep
 )
 from app.domain.common.exceptions import NotFoundError
-from app.presentation.api.mappers.users_mapper import to_user_read, to_domain_user
+from app.presentation.api.mappers.users_mapper import to_candidate_read as to_user_read, to_domain_candidate as to_domain_user
 from app.presentation.api.v1.schemas.users import (
     UserRead,
     UsersCountResponse,

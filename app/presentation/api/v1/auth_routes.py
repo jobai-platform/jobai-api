@@ -18,7 +18,7 @@ from app.core.rate_limiting import limiter
 from app.domain.common.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
-from app.presentation.api.mappers.users_mapper import to_user_read
+from app.presentation.api.mappers.users_mapper import to_candidate_read as to_user_read
 from app.presentation.api.v1.schemas.auth import (
     AccessTokenResponse,
     LinkedInAuthUrlResponse,

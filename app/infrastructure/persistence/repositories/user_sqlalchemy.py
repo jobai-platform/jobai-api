@@ -116,14 +116,14 @@ class SqlAlchemyUserRepository(UserRepository):
             first_name=user.first_name,
             last_name=user.last_name,
             hashed_password=user.hashed_password.value if user.hashed_password else None,
-            role=user.role.value if isinstance(user.role, CandidateRole) else user.role,
+            role=user.role.value if user.role else None,
             is_active=user.is_active,
             linkedin_id=user.linkedin_id,
             avatar_url=user.avatar_url,
         )
 
         self.session.add(new_user)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(new_user)
         return _to_domain(new_user)
 

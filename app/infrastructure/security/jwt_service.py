@@ -76,7 +76,7 @@ class JWTService:
         if extra:
             payload.update(extra)
         payload["type"] = "refresh"
-        payload["exp"] = self._now() + timedelta(minutes=self.cfg.refresh_token_expire_days)
+        payload["exp"] = self._now() + timedelta(days=self.cfg.refresh_token_expire_days)
         return self._encode(payload)
 
     def decode_token(self, token: str) -> Mapping[str, object]:

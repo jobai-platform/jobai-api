@@ -45,8 +45,3 @@ def to_domain_candidate(payload: UserUpdate, user_id: UUID) -> Candidate:
         role=role,
         is_active=data.get("is_active"),
     )
-
-
-# Backwards-compatible aliases — remove once all callers are updated
-to_user_read = to_candidate_read
-to_domain_user = to_domain_candidate

@@ -1,6 +1,6 @@
-from uuid import uuid4
+from uuid import UUID
 
-from app.domain.users.entities import Candidate
+from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.value_objects import Email
 from app.presentation.api.v1.schemas.users import UserRead, UserUpdate
 
@@ -21,7 +21,7 @@ def to_candidate_read(candidate: Candidate) -> UserRead:
     )
 
 
-def to_domain_candidate(payload: UserUpdate) -> Candidate:
+def to_domain_candidate(payload: UserUpdate, user_id: UUID) -> Candidate:
     """
     Mapper API → Domain (partial update).
     Only fields explicitly provided are set; others stay None so
@@ -33,13 +33,16 @@ def to_domain_candidate(payload: UserUpdate) -> Candidate:
     if "email" in data and data["email"] is not None:
         email_vo = Email.from_raw(str(data["email"]))
 
+    role_raw = data.get("role")
+    role = CandidateRole(role_raw) if role_raw is not None else None
+
     return Candidate(
-        id=uuid4(),  # placeholder — repo.update() ignores this field, uses the route's user_id param
+        id=user_id,
         email=email_vo,
         username=data.get("username"),
         first_name=data.get("first_name"),
         last_name=data.get("last_name"),
-        role=data.get("role"),
+        role=role,
         is_active=data.get("is_active"),
     )
 

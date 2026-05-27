@@ -9,10 +9,14 @@ from uuid import UUID
 
 import pytest
 
+from typing import Optional
+
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RegisterResult, RegisterUseCase, TokenPair
+from app.application.billing.ports import SubscriptionRepository
 from app.application.users.ports import PasswordHasher
 from app.application.users.use_cases import UserService
+from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.common.exceptions import BadRequestError, ConflictError, UnauthorizedError
 from app.domain.users.refresh_token import RefreshToken
@@ -75,6 +79,22 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
         token = self._store.get(token_hash)
         if token is not None and token.revoked_at is None:
             token.revoked_at = datetime.now(UTC)
+
+
+class BrokenSubscriptionRepository(SubscriptionRepository):
+    """Fake that always fails on create — used to test error propagation."""
+
+    async def get_by_user_id(self, user_id) -> Optional[Subscription]:
+        return None
+
+    async def get_by_stripe_subscription_id(self, stripe_subscription_id: str) -> Optional[Subscription]:
+        return None
+
+    async def create(self, subscription: Subscription) -> Subscription:
+        raise RuntimeError("Subscription storage unavailable")
+
+    async def update(self, subscription: Subscription) -> Optional[Subscription]:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -233,23 +253,6 @@ async def test_register_assigns_freemium_subscription() -> None:
 @pytest.mark.asyncio
 async def test_register_does_not_return_result_if_freemium_assignment_fails() -> None:
     """Si l'assignation Freemium échoue, le use case propage l'erreur — pas de RegisterResult retourné."""
-    from app.application.billing.ports import SubscriptionRepository
-    from app.domain.billing.entities.subscription import Subscription
-    from typing import Optional
-
-    class BrokenSubscriptionRepository(SubscriptionRepository):
-        async def get_by_user_id(self, user_id) -> Optional[Subscription]:
-            return None
-
-        async def get_by_stripe_subscription_id(self, stripe_subscription_id: str) -> Optional[Subscription]:
-            return None
-
-        async def create(self, subscription: Subscription) -> Subscription:
-            raise RuntimeError("Subscription storage unavailable")
-
-        async def update(self, subscription: Subscription) -> Optional[Subscription]:
-            return None
-
     use_case, *_ = _make_use_case(subscription_repo=BrokenSubscriptionRepository())
 
     with pytest.raises(RuntimeError, match="Subscription storage unavailable"):

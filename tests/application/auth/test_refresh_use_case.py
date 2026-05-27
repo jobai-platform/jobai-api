@@ -8,7 +8,7 @@ import pytest
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RefreshTokenUseCase, TokenPair
 from app.domain.common.exceptions import UnauthorizedError
-from app.domain.users.entities import Candidate
+from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
@@ -199,7 +199,7 @@ async def test_refresh_token_rotates_old_token_and_persists_new_token() -> None:
         Candidate(
             id=uuid4(),
             email=Email.from_raw("user@example.com"),
-            role="user",
+            role=CandidateRole.USER,
             is_active=True,
         ),
     )

@@ -98,3 +98,5 @@ def downgrade() -> None:
 
     op.execute("DROP INDEX IF EXISTS public.idx_candidate_embeddings_vector_hnsw")
     op.drop_table('candidate_embeddings', schema='public')
+
+    op.execute("DROP EXTENSION IF EXISTS vector;")

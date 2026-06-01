@@ -113,8 +113,92 @@ async def test_refresh_without_cookie_returns_401(client):
 
 
 # ---------------------------------------------------------------------------
-# POST /auth/register
+# POST /auth/token (Login)
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_login_returns_refresh_token_in_cookie_and_not_in_body(client, create_user_in_db):
+    """
+    Le système DOIT retourner le refresh_token dans un cookie httpOnly
+    et NE PAS l'inclure dans le corps de la réponse JSON.
+    """
+    # Arrange
+    user = await create_user_in_db("login-test@example.com")
+    payload = {
+        "username": user.email,
+        "password": _VALID_PASSWORD,
+    }
+
+    # Act
+    response = await client.post(
+        "/api/v1/auth/token",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    # Assert
+    assert response.status_code == 200
+
+    # 1. Vérification du corps JSON
+    body = response.json()
+    assert "access_token" in body
+    assert body.get("token_type") == "Bearer"
+    assert "refresh_token" not in body, "Le refresh_token ne doit plus être présent dans le corps JSON"
+
+    # 2. Vérification du cookie
+    cookie = response.cookies.get("refresh_token")
+    assert cookie is not None, "Le refresh_token doit être présent dans les cookies"
+
+    # Vérification des attributs du cookie via le header Set-Cookie
+    set_cookie_header = response.headers.get("set-cookie", "")
+    assert "HttpOnly" in set_cookie_header
+    assert "Secure" in set_cookie_header
+    assert "samesite=lax" in set_cookie_header.lower()
+    assert "Max-Age=604800" in set_cookie_header
+
+
+@pytest.mark.asyncio
+async def test_login_returns_401_with_invalid_credentials(client):
+    """Le système DOIT retourner une erreur 401 quand les identifiants sont invalides."""
+    # Arrange
+    payload = {
+        "username": "wrong@example.com",
+        "password": "WrongPassword123!",
+    }
+
+    # Act
+    response = await client.post(
+        "/api/v1/auth/token",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    # Assert
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+@pytest.mark.asyncio
+async def test_login_accepts_form_urlencoded(client, create_user_in_db):
+    """L'endpoint DOIT accepter le format application/x-www-form-urlencoded (standard OAuth2)."""
+    # Arrange
+    user = await create_user_in_db("form-test@example.com")
+    payload = {
+        "username": user.email,
+        "password": _VALID_PASSWORD,
+    }
+
+    # Act
+    response = await client.post(
+        "/api/v1/auth/token",
+        data=payload,
+    )
+
+    # Assert
+    # On vérifie que ce n'est pas une erreur de validation 422
+    assert response.status_code != 422
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio

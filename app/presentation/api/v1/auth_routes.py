@@ -92,29 +92,39 @@ async def register(
 
 @router.post(
     "/token",
-    response_model=TokenPairSchema,
+    response_model=AccessTokenResponse,
     status_code=status.HTTP_200_OK,
     summary="User login and obtain JWT tokens",
-    description="Authenticate user and return JWT access and refresh tokens.",
+    description="Authenticate user and return JWT access token. Refresh token is set in an httpOnly cookie.",
 )
 async def login(
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     auth_service: AuthServiceDep,
 ):
     """
     Oauth2-compatible login, get an access token and a refresh token for future requests.
+    :param response: FastAPI Response to set cookies
     :param form_data: OAuth2PasswordRequestForm
     :param auth_service: AuthService
-    :return: TokenPair
+    :return: AccessTokenResponse
     """
     try:
         tokens = await auth_service.login(
             email=form_data.username,
             password=form_data.password,
         )
-        return TokenPairSchema(
+        response.set_cookie(
+            REFRESH_TOKEN_COOKIE_NAME,
+            tokens.refresh_token,
+            max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+        )
+        return AccessTokenResponse(
             access_token=tokens.access_token,
-            refresh_token=tokens.refresh_token,
             token_type=tokens.token_type,
         )
     except ValueError:

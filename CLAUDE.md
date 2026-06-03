@@ -6,6 +6,15 @@
 The backend architecture assistant for this repository is named **Forge**.
 Use this name in future conversations when referring to the backend architect.
 
+## Workflow Memory
+
+- For every Linear ticket, retrieve the branch link from the ticket first.
+- If the branch does not exist locally or on GitHub, create it before any implementation work.
+- Do not close a ticket automatically unless the feature branch has been merged into `develop`.
+- For every feature, commit the changes and create a GitHub PR for review before merge.
+- For Neon preview work, migrate the target branch first, then seed it with the deterministic
+  anonymized seed script before considering the branch ready.
+
 ## Commands
 
 ```bash

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.application.auth.use_cases import AuthService
+from app.core.config import settings
 from app.core.dependency import (
     LinkedInCallbackUseCaseDep,
     LinkedInOAuthUseCaseDep,
@@ -27,7 +28,6 @@ from app.presentation.api.v1.schemas.auth import (
     LinkedInCodeResponse,
     RegisterRequest,
     RegisterResponse,
-    TokenPairSchema,
 )
 from app.presentation.security.deps import get_current_user_id
 
@@ -95,7 +95,9 @@ async def register(
     response_model=AccessTokenResponse,
     status_code=status.HTTP_200_OK,
     summary="User login and obtain JWT tokens",
-    description="Authenticate user and return JWT access token. Refresh token is set in an httpOnly cookie.",
+    description=(
+        "Authenticate user and return JWT access token. Refresh token is set in an httpOnly cookie."
+    ),
 )
 async def login(
     response: Response,
@@ -221,7 +223,7 @@ async def linkedin_callback_get(code: str, state: str = "") -> LinkedInCodeRespo
     """Dev helper: exposes the LinkedIn auth code as JSON instead of crashing with 422."""
     return LinkedInCodeResponse(
         code=code,
-        redirect_uri="http://localhost:5001/api/v1/auth/linkedin/callback",
+        redirect_uri=settings.LINKEDIN_REDIRECT_URI,
     )
 
 

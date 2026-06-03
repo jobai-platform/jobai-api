@@ -16,6 +16,31 @@ def test_settings_reads_ollama_base_url_from_env(monkeypatch):
     assert config_module.Settings.OLLAMA_BASE_URL == "http://custom-ollama:9999"
 
 
+def test_settings_reads_app_env_from_env(monkeypatch):
+    """GIVEN APP_ENV is set in the environment
+    WHEN Settings is instantiated
+    THEN the configured runtime environment is used
+    """
+    monkeypatch.setenv("APP_ENV", "preview")
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.APP_ENV == "preview"
+
+
+def test_settings_rejects_invalid_app_env(monkeypatch):
+    """GIVEN APP_ENV is invalid
+    WHEN Settings is loaded
+    THEN configuration fails fast
+    """
+    monkeypatch.setenv("APP_ENV", "staging")
+
+    with pytest.raises(ValueError, match="APP_ENV must be one of"):
+        import app.core.config as config_module
+        importlib.reload(config_module)
+
+
 def test_settings_reads_ollama_llm_model_from_env(monkeypatch):
     """GIVEN OLLAMA_LLM_MODEL is set in the environment
     WHEN Settings is instantiated
@@ -29,6 +54,37 @@ def test_settings_reads_ollama_llm_model_from_env(monkeypatch):
     assert config_module.Settings.OLLAMA_LLM_MODEL == "mistral-nemo:12b"
 
 
+def test_settings_reads_public_api_base_url_from_env(monkeypatch):
+    """GIVEN PUBLIC_API_BASE_URL is set in the environment
+    WHEN Settings is instantiated
+    THEN the public backend URL is read from the environment
+    """
+    monkeypatch.setenv("PUBLIC_API_BASE_URL", "https://api.preview.test")
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.PUBLIC_API_BASE_URL == "https://api.preview.test"
+
+
+def test_settings_reads_linkedin_redirect_uri_from_env(monkeypatch):
+    """GIVEN LINKEDIN_REDIRECT_URI is set in the environment
+    WHEN Settings is instantiated
+    THEN the explicit LinkedIn callback URL is used
+    """
+    monkeypatch.setenv(
+        "LINKEDIN_REDIRECT_URI",
+        "https://api.preview.test/api/v1/auth/linkedin/callback",
+    )
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.LINKEDIN_REDIRECT_URI == (
+        "https://api.preview.test/api/v1/auth/linkedin/callback"
+    )
+
+
 def test_settings_ollama_timeout_defaults_to_120(monkeypatch):
     """GIVEN OLLAMA_TIMEOUT is NOT set in the environment
     WHEN Settings is instantiated
@@ -40,6 +96,34 @@ def test_settings_ollama_timeout_defaults_to_120(monkeypatch):
     importlib.reload(config_module)
 
     assert config_module.Settings.OLLAMA_TIMEOUT == 120.0
+
+
+def test_settings_database_url_sync_defaults_to_database_url(monkeypatch):
+    """GIVEN DATABASE_URL_SYNC is NOT set
+    WHEN Settings is instantiated
+    THEN the sync URL defaults to DATABASE_URL
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://user:pass@host/db")
+    monkeypatch.delenv("DATABASE_URL_SYNC", raising=False)
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.DATABASE_URL_SYNC == "postgresql+asyncpg://user:pass@host/db"
+
+
+def test_settings_database_url_sync_reads_env(monkeypatch):
+    """GIVEN DATABASE_URL_SYNC is set
+    WHEN Settings is instantiated
+    THEN the explicit sync URL is used
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://user:pass@host/db")
+    monkeypatch.setenv("DATABASE_URL_SYNC", "postgresql://user:pass@host-sync/db")
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.DATABASE_URL_SYNC == "postgresql://user:pass@host-sync/db"
 
 
 def test_settings_embedding_provider_defaults_to_ollama(monkeypatch):

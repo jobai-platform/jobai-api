@@ -16,20 +16,34 @@ def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> li
   return origins
 
 
+def _parse_app_env(raw_value: str | None) -> str:
+  env = (raw_value or "dev").strip().lower()
+  allowed_envs = {"dev", "preview", "develop", "production"}
+  if env not in allowed_envs:
+    raise ValueError(f"APP_ENV must be one of {sorted(allowed_envs)}")
+  return env
+
+
+def _default_linkedin_redirect_uri() -> str:
+  public_api_base_url = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:5001")
+  return f"{public_api_base_url.rstrip('/')}/api/v1/auth/linkedin/callback"
+
+
 _FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
-
-
 class Settings:
+  APP_ENV: str = _parse_app_env(os.getenv("APP_ENV"))
   SECRET_KEY = os.getenv("SECRET_KEY", "secret")
   ALGORITHM = "HS256"
   ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
   REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN", "7"))
   FRONTEND_ORIGIN: str = _FRONTEND_ORIGIN
+  PUBLIC_API_BASE_URL: str = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:5001")
   CORS_ALLOW_ORIGINS: list[str] = _parse_cors_allow_origins(
       os.getenv("CORS_ALLOW_ORIGINS"),
       _FRONTEND_ORIGIN,
   )
   DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+  DATABASE_URL_SYNC: str = os.getenv("DATABASE_URL_SYNC", DATABASE_URL)
   DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 
   # Stripe API
@@ -44,7 +58,10 @@ class Settings:
   # LinkedIn OAuth
   LINKEDIN_CLIENT_ID: str = os.getenv("LINKEDIN_CLIENT_ID", "")
   LINKEDIN_CLIENT_SECRET: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
-  LINKEDIN_REDIRECT_URI: str = os.getenv("LINKEDIN_REDIRECT_URI", "http://localhost:8000/api/v1/auth/linkedin/callback")
+  LINKEDIN_REDIRECT_URI: str = os.getenv(
+      "LINKEDIN_REDIRECT_URI",
+      _default_linkedin_redirect_uri(),
+  )
 
   # LinkedIn scraper proxies — comma-separated list, e.g. "http://user:pass@host:port,http://..."
   # Leave empty in dev. Required in prod to avoid LinkedIn rate-limiting.

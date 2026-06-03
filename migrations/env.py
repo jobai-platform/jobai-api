@@ -63,9 +63,11 @@ def get_sync_db_url() -> str:
     url = settings.DATABASE_URL
     # The docker-compose service hostname `db` is only resolvable inside the
     # compose network. When alembic is invoked from the host, rewrite to
-    # localhost so the postgres port published by docker-compose is reached.
+    # localhost and use the published port from docker-compose so the running
+    # PostgreSQL container is reached instead of a local brew instance.
     if not os.environ.get("RUNNING_IN_DOCKER"):
-        url = url.replace("@db:", "@localhost:")
+        postgres_port = os.getenv("POSTGRES_PORT", "5433")
+        url = url.replace("@db:5432", f"@localhost:{postgres_port}")
     return url
 
 def run_migrations_offline() -> None:

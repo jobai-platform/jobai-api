@@ -1,5 +1,10 @@
-# CLAUDE.md — JobAI Plateforme
+# AGENTS.md — JobAI Plateforme
 # Hexagonal Architecture · DDD · TDD First · FastAPI · Python 3.13
+
+## Assistant Identity
+
+The backend architecture assistant for this repository is named **Forge**.
+Use this name in future conversations when referring to the backend architect.
 
 ## Commands
 
@@ -157,7 +162,7 @@ app/
 
 ---
 
-## 🧩 DDD — Ubiquitous Language should reflect the domain language. For JobAI
+## 🧩 DDD — Ubiquitous Language
 
 Always use these exact terms in code, tests, and comments:
 
@@ -177,7 +182,7 @@ Always use these exact terms in code, tests, and comments:
 
 - **Users / Auth** — registration, login, JWT, OAuth Google
 - **Job Search** — JobPosting, Application, SearchAgent
-- **AI Analysis** — LLMs, matching, RAG, MCP, rewriting, scoring (LangChain, Pinecone)
+- **AI Analysis** — LLMs, matching, RAG, MCP, rewriting, scoring (LangGraph, Ollama)
 - **Businesses / Integrations** — Google My Business, Stripe billing
 
 ---
@@ -361,11 +366,16 @@ Tests override `get_async_session` to inject a transaction-scoped test session.
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | PostgreSQL (psycopg, sync — Alembic) |
+| `DATABASE_URL` | PostgreSQL async (asyncpg) |
+| `DATABASE_URL_SYNC` | PostgreSQL sync — Alembic migrations only |
 | `DATABASE_URL_TEST` | PostgreSQL (asyncpg, test suite) |
 | `JWT_SECRET` | Token signing |
 | `STRIPE_SECRET` | Stripe API key |
-| `OPENAI_API_KEY` | AI features (LangChain) |
+| `OLLAMA_BASE_URL` | Local AI inference — `http://localhost:11434` |
+| `OLLAMA_LLM_MODEL` | LLM model name — `mistral:7b` |
+| `OLLAMA_EMBEDDING_MODEL` | Embedding model — `nomic-embed-text` |
+
+> ⚠️ No OpenAI or Anthropic API keys — all AI inference is local via Ollama (nLPD/RGPD by design).
 
 ---
 
@@ -382,6 +392,7 @@ Tests override `get_async_session` to inject a transaction-scoped test session.
 - HTTP status codes raised inside use cases
 - Mocks instead of Fakes for domain/application tests
 - God classes / use cases doing more than one thing
+- Any call to OpenAI / Anthropic API from the backend
 
 ---
 

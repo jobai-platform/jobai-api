@@ -3,8 +3,10 @@ Tests TDD pour LinkedIn OAuth routes
 Bounded Context : Users / Auth
 Layer : presentation
 """
-import pytest
+import importlib
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.application.auth.linkedin_callback_use_case import LinkedInCallbackUseCase
 from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
@@ -66,6 +68,28 @@ async def test_get_linkedin_auth_url_returns_200_with_state(client):
     assert "linkedin.com" in data["authorization_url"]
     assert "state" in data
     assert data["state"]  # non-empty — frontend stores for CSRF check
+
+
+@pytest.mark.asyncio
+async def test_linkedin_callback_get_uses_public_api_base_url(monkeypatch, client):
+    monkeypatch.setenv(
+        "LINKEDIN_REDIRECT_URI",
+        "https://api.preview.test/api/v1/auth/linkedin/callback",
+    )
+
+    import app.core.config as config_module
+    import app.presentation.api.v1.auth_routes as auth_routes_module
+
+    importlib.reload(config_module)
+    importlib.reload(auth_routes_module)
+
+    response = await client.get(
+        "/api/v1/auth/linkedin/callback",
+        params={"code": "abc123", "state": "csrf-token-xyz"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["redirect_uri"] == "https://api.preview.test/api/v1/auth/linkedin/callback"
 
 
 # ---------------------------------------------------------------------------

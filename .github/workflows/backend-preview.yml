@@ -1,0 +1,93 @@
+name: Backend Preview
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - develop
+    paths:
+      - app/**
+      - tests/**
+      - scripts/**
+      - .github/workflows/backend-preview.yml
+      - pyproject.toml
+      - poetry.lock
+  workflow_dispatch:
+
+concurrency:
+  group: backend-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-db:
+    name: Create Neon preview branch and migrate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      APP_ENV: preview
+      NEON_PARENT_BRANCH: ${{ vars.NEON_PARENT_BRANCH }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      PYTHON_VERSION: "3.13"
+      POETRY_VERSION: "2.1.4"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop infinite loop if commit is from GitHub Actions
+        if: github.actor == 'github-actions'
+        run: |
+          echo "Triggered by GitHub Actions bot - skipping workflow."
+          exit 0
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v3
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi --no-root
+
+      - name: Create or reuse Neon preview branch
+        id: neon
+        run: |
+          poetry run python -m app.infrastructure.ci.neon_branch_lifecycle \
+            --branch "${GITHUB_REF_NAME}" \
+            --commit-sha "${GITHUB_SHA}" \
+            --project-id "${NEON_PROJECT_ID}" \
+            --api-key "${NEON_API_KEY}" \
+            --parent-branch "${NEON_PARENT_BRANCH}"
+
+      - name: Run Alembic migrations on preview branch
+        run: poetry run alembic upgrade head
+
+      - name: Write GitHub Actions summary
+        if: always()
+        run: |
+          {
+            echo "## Backend preview database lifecycle"
+            echo "- Feature branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Commit SHA: \`${GITHUB_SHA}\`"
+            echo "- Parent branch: \`${NEON_PARENT_BRANCH}\`"
+            echo "- Neon preview branch: \`${{ steps.neon.outputs.preview_branch_name }}\`"
+            echo "- Neon branch id: \`${{ steps.neon.outputs.preview_branch_id }}\`"
+            echo "- Preview branch created: \`${{ steps.neon.outputs.preview_branch_created }}\`"
+            echo "- Migration result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

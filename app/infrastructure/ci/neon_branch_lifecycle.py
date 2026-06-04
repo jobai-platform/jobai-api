@@ -181,6 +181,11 @@ def _write_github_env(name: str, value: str) -> None:
         handle.write(f"{name}={value}\n")
 
 
+def _mask_github_secret(value: str) -> None:
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{value}")
+
+
 def _write_summary(
     result: PreviewBranchResult,
     *,
@@ -227,6 +232,7 @@ def main() -> None:
     _write_github_output("preview_branch_name", result.branch_name)
     _write_github_output("preview_branch_id", result.branch_id)
     _write_github_output("preview_branch_created", "true" if result.created else "false")
+    _mask_github_secret(result.database_url)
     _write_github_env("DATABASE_URL", result.database_url)
     _write_summary(
         result,

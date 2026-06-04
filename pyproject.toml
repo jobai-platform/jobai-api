@@ -82,6 +82,9 @@ filterwarnings = [
     "ignore::DeprecationWarning:starlette",
 ]
 
+[tool.vercel]
+entrypoint = "app.main:app"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

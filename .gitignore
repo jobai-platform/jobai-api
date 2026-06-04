@@ -1,5 +1,8 @@
 .idea
 .env
+.env.*
+!.env.example
+env.vercel.preview
 .DS_Store
 
 # AI agent local files
@@ -20,3 +23,6 @@ poetry.lock
 
 _legacy
 .worktrees/
+
+# Vercel local project link
+.vercel

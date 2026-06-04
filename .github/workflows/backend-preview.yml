@@ -19,18 +19,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  preview-db:
-    name: Create Neon preview branch and migrate
+  preview:
+    name: Create DB, deploy Vercel backend preview and smoke test
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write
+      issues: write
     env:
       APP_ENV: preview
-      NEON_PARENT_BRANCH: ${{ vars.NEON_PARENT_BRANCH }}
-      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      DATABASE_URL_TEST: postgresql+asyncpg://jobai:jobai@localhost:5432/jobai_test
+      DATABASE_URL: postgresql+asyncpg://jobai:jobai@localhost:5432/jobai_test
+      JWT_SECRET: ci-test-secret-not-for-production
+      LINKEDIN_CLIENT_ID: dummy
+      LINKEDIN_CLIENT_SECRET: dummy
+      NEON_PARENT_BRANCH: ${{ vars.NEON_PARENT_BRANCH || secrets.NEON_PARENT_BRANCH }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      PREVIEW_BACKEND_BASE_DOMAIN: ${{ vars.PREVIEW_BACKEND_BASE_DOMAIN || secrets.PREVIEW_BACKEND_BASE_DOMAIN }}
       PYTHON_VERSION: "3.13"
       POETRY_VERSION: "2.1.4"
+      VERCEL_BACKEND_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID || secrets.VERCEL_BACKEND_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: jobai
+          POSTGRES_PASSWORD: jobai
+          POSTGRES_DB: jobai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -65,6 +91,30 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi --no-root
 
+      - name: Run fast test suite
+        run: poetry run pytest -q
+
+      - name: Validate Vercel preview deployment configuration
+        env:
+          PREVIEW_JWT_SECRET: ${{ secrets.PREVIEW_JWT_SECRET }}
+        run: |
+          missing=0
+          for name in \
+            NEON_API_KEY \
+            NEON_PARENT_BRANCH \
+            NEON_PROJECT_ID \
+            PREVIEW_JWT_SECRET \
+            VERCEL_BACKEND_PROJECT_ID \
+            VERCEL_ORG_ID \
+            VERCEL_TOKEN
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::${name} is required for backend preview deployment"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
       - name: Create or reuse Neon preview branch
         id: neon
         run: |
@@ -78,16 +128,131 @@ jobs:
       - name: Run Alembic migrations on preview branch
         run: poetry run alembic upgrade head
 
+      - name: Prepare backend preview metadata
+        id: preview
+        run: |
+          poetry run python -m app.infrastructure.ci.backend_preview_deployment \
+            --preview-slug "${{ steps.neon.outputs.preview_branch_name }}" \
+            --branch "${GITHUB_REF_NAME}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --commit-sha "${GITHUB_SHA}" \
+            --base-domain "${PREVIEW_BACKEND_BASE_DOMAIN:-vercel.app}" \
+            --neon-branch-name "${{ steps.neon.outputs.preview_branch_name }}"
+
+      - name: Deploy backend preview to Vercel
+        id: vercel
+        env:
+          PREVIEW_FRONTEND_ORIGIN: ${{ vars.PREVIEW_FRONTEND_ORIGIN }}
+          PREVIEW_JWT_SECRET: ${{ secrets.PREVIEW_JWT_SECRET }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID || secrets.VERCEL_BACKEND_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          preview_frontend_origin="${PREVIEW_FRONTEND_ORIGIN:-https://${{ steps.preview.outputs.preview_slug }}.preview.sovrum.dev}"
+          public_api_base_url="${{ vars.VERCEL_BACKEND_PUBLIC_API_BASE_URL }}"
+          public_api_base_url="${public_api_base_url:-https://jobai-api.vercel.app}"
+
+          npx vercel@latest deploy \
+            --yes \
+            --token "${VERCEL_TOKEN}" \
+            --env APP_ENV=preview \
+            --env DATABASE_URL="${DATABASE_URL}" \
+            --env DATABASE_URL_SYNC="${DATABASE_URL}" \
+            --env SECRET_KEY="${PREVIEW_JWT_SECRET}" \
+            --env JWT_SECRET="${PREVIEW_JWT_SECRET}" \
+            --env PUBLIC_API_BASE_URL="${public_api_base_url}" \
+            --env FRONTEND_ORIGIN="${preview_frontend_origin}" \
+            --env CORS_ALLOW_ORIGINS="${preview_frontend_origin}" \
+            --env LINKEDIN_CLIENT_ID=dummy \
+            --env LINKEDIN_CLIENT_SECRET=dummy \
+            --env LINKEDIN_REDIRECT_URI="${public_api_base_url}/api/v1/auth/linkedin/callback" \
+            --env LANGFUSE_PUBLIC_KEY= \
+            --env LANGFUSE_SECRET_KEY= \
+            --build-env APP_ENV=preview \
+            --build-env DATABASE_URL="${DATABASE_URL}" \
+            --build-env DATABASE_URL_SYNC="${DATABASE_URL}" \
+            --build-env SECRET_KEY="${PREVIEW_JWT_SECRET}" \
+            --build-env JWT_SECRET="${PREVIEW_JWT_SECRET}" \
+            --build-env PUBLIC_API_BASE_URL="${public_api_base_url}" \
+            --build-env FRONTEND_ORIGIN="${preview_frontend_origin}" \
+            --build-env CORS_ALLOW_ORIGINS="${preview_frontend_origin}" \
+            --build-env LINKEDIN_CLIENT_ID=dummy \
+            --build-env LINKEDIN_CLIENT_SECRET=dummy \
+            --build-env LANGFUSE_PUBLIC_KEY= \
+            --build-env LANGFUSE_SECRET_KEY= \
+            | tee /tmp/vercel-deploy.log
+
+          deployment_url="$(tail -n 1 /tmp/vercel-deploy.log)"
+
+          echo "deployment_url=${deployment_url}" >> "$GITHUB_OUTPUT"
+          echo "preview_frontend_origin=${preview_frontend_origin}" >> "$GITHUB_OUTPUT"
+          echo "public_api_base_url=${public_api_base_url}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "pr_comment_body<<EOF"
+            echo "<!-- jobai-backend-preview -->"
+            echo "## Backend preview ready"
+            echo ""
+            echo "- Preview URL: ${deployment_url}"
+            echo "- Health check: ${deployment_url}/health"
+            echo "- Feature branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Neon branch: \`${{ steps.neon.outputs.preview_branch_name }}\`"
+            echo "- Vercel project id: \`${VERCEL_PROJECT_ID}\`"
+            echo "- Frontend origin: \`${preview_frontend_origin}\`"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test backend preview
+        env:
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID || secrets.VERCEL_BACKEND_PROJECT_ID }}
+        run: npx vercel@latest curl /health --deployment "${{ steps.vercel.outputs.deployment_url }}"
+
       - name: Write GitHub Actions summary
         if: always()
         run: |
           {
-            echo "## Backend preview database lifecycle"
+            echo "## Backend preview"
             echo "- Feature branch: \`${GITHUB_REF_NAME}\`"
             echo "- Commit SHA: \`${GITHUB_SHA}\`"
-            echo "- Parent branch: \`${NEON_PARENT_BRANCH}\`"
+            echo "- Preview URL: ${{ steps.vercel.outputs.deployment_url }}"
+            echo "- Health URL: ${{ steps.vercel.outputs.deployment_url }}/health"
+            echo "- Frontend origin: \`${{ steps.vercel.outputs.preview_frontend_origin }}\`"
+            echo "- Parent Neon branch: \`${NEON_PARENT_BRANCH}\`"
             echo "- Neon preview branch: \`${{ steps.neon.outputs.preview_branch_name }}\`"
             echo "- Neon branch id: \`${{ steps.neon.outputs.preview_branch_id }}\`"
             echo "- Preview branch created: \`${{ steps.neon.outputs.preview_branch_created }}\`"
-            echo "- Migration result: \`${{ job.status }}\`"
+            echo "- Workflow result: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post or update PR comment
+        if: success()
+        uses: actions/github-script@v7
+        env:
+          PR_COMMENT_BODY: ${{ steps.vercel.outputs.pr_comment_body }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pulls = await github.rest.pulls.list({
+              owner,
+              repo,
+              head: `${owner}:${context.ref.replace('refs/heads/', '')}`,
+              state: 'open',
+              per_page: 1,
+            });
+
+            if (pulls.data.length === 0) {
+              core.info('No open PR found for this branch; skipping PR comment.');
+              return;
+            }
+
+            const issue_number = pulls.data[0].number;
+            const marker = '<!-- jobai-backend-preview -->';
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+            const existing = comments.data.find((comment) => comment.body?.includes(marker));
+            const body = process.env.PR_COMMENT_BODY;
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

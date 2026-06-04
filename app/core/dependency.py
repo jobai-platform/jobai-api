@@ -59,13 +59,8 @@ from app.core.config import settings
 from app.domain.ai_analysis.ports import EmbeddingPort, LLMGatewayPort
 from app.domain.ai_analysis.services.model_router import ModelRouter
 from app.domain.ai_analysis.value_objects import ProviderConfig
-from app.infrastructure.ai.langgraph_pipeline_adapter import LangGraphPipelineAdapter
-from app.infrastructure.ai.ollama_embedding_adapter import OllamaEmbeddingAdapter
-from app.infrastructure.ai.ollama_llm_gateway import OllamaLLMGateway
-from app.infrastructure.ai.timescale_vector_store import TimescaleVectorStoreAdapter
 from app.infrastructure.billing.stripe_gateway import StripeGateway
 from app.infrastructure.config.database import get_async_session
-from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsScraperAdapter
 from app.infrastructure.persistence.repositories.ai_analysis_sqlalchemy import (
     SQLAlchemyAIAnalysisRepository,
 )
@@ -91,7 +86,6 @@ from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlche
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.linkedin_oauth_adapter import LinkedInOAuthAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
-from app.infrastructure.storage.s3_gateway import S3StorageGateway
 
 DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
@@ -237,6 +231,8 @@ def get_sync_stripe_prices_use_case(
 # Job Search - factories
 # ---------------------------------------------------------------------------
 def get_job_scraper_gateway() -> JobScraperGateway:
+    from app.infrastructure.job_search.linkedin_scraper_adapter import LinkedInJobsScraperAdapter
+
     return LinkedInJobsScraperAdapter()
 
 def get_job_posting_repository(session: DbSession) -> JobPostingRepository:
@@ -284,6 +280,8 @@ def get_run_search_agent_use_case(
 # Storage — factories
 # ---------------------------------------------------------------------------
 def get_storage_gateway() -> StorageGateway:
+    from app.infrastructure.storage.s3_gateway import S3StorageGateway
+
     return S3StorageGateway()
 
 def get_upload_cv_use_case(
@@ -335,6 +333,9 @@ def get_linkedin_callback_use_case(
 # AI Analysis — composition root
 # ---------------------------------------------------------------------------
 def get_model_router() -> ModelRouter:
+    from app.infrastructure.ai.ollama_embedding_adapter import OllamaEmbeddingAdapter
+    from app.infrastructure.ai.ollama_llm_gateway import OllamaLLMGateway
+
     config = ProviderConfig(
         embedding_provider=settings.EMBEDDING_PROVIDER,
         llm_provider=settings.LLM_PROVIDER,
@@ -382,10 +383,14 @@ def get_ai_analysis_repository(session: DbSession) -> AIAnalysisRepository:
 
 
 def get_vector_store(session: DbSession) -> VectorStorePort:
+    from app.infrastructure.ai.timescale_vector_store import TimescaleVectorStoreAdapter
+
     return TimescaleVectorStoreAdapter(session=session)
 
 
 def get_embedding_port() -> EmbeddingPort:
+    from app.infrastructure.ai.ollama_embedding_adapter import OllamaEmbeddingAdapter
+
     return OllamaEmbeddingAdapter(
         base_url=settings.OLLAMA_BASE_URL,
         model=settings.OLLAMA_EMBEDDING_MODEL,
@@ -393,6 +398,10 @@ def get_embedding_port() -> EmbeddingPort:
 
 
 def get_langgraph_pipeline(session: DbSession) -> AIAnalysisPipelinePort:
+    from app.infrastructure.ai.langgraph_pipeline_adapter import LangGraphPipelineAdapter
+    from app.infrastructure.ai.ollama_embedding_adapter import OllamaEmbeddingAdapter
+    from app.infrastructure.ai.ollama_llm_gateway import OllamaLLMGateway
+
     llm = OllamaLLMGateway(
         base_url=settings.OLLAMA_BASE_URL,
         model=settings.OLLAMA_LLM_MODEL,
@@ -482,7 +491,10 @@ DeleteSearchAgentDep = Annotated[
 ]
 RunSearchAgentDep = Annotated[RunSearchAgentUseCase, Depends(get_run_search_agent_use_case)]
 LinkedInOAuthUseCaseDep = Annotated[LinkedInOAuthUseCase, Depends(get_linkedin_oauth_use_case)]
-LinkedInCallbackUseCaseDep = Annotated[LinkedInCallbackUseCase, Depends(get_linkedin_callback_use_case)]
+LinkedInCallbackUseCaseDep = Annotated[
+    LinkedInCallbackUseCase,
+    Depends(get_linkedin_callback_use_case),
+]
 GetCandidateProfileDep = Annotated[
     GetCandidateProfileUseCase,
     Depends(get_candidate_profile_use_case),

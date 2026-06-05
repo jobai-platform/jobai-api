@@ -2,7 +2,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
 from app.domain.users.refresh_token import RefreshToken
-from app.domain.users.value_objects import LinkedInProfile
+from app.domain.users.value_objects import Email, LinkedInProfile
+
+
+class IEmailGateway(ABC):
+    """Port for transactional authentication emails."""
+
+    @abstractmethod
+    async def send_password_reset(self, email: Email, token: str, reset_url: str) -> None:
+        raise NotImplementedError
 
 
 class LinkedInOAuthGateway(ABC):

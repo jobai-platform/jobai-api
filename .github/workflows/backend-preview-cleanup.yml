@@ -1,0 +1,158 @@
+name: Backend Preview Cleanup
+
+on:
+  pull_request:
+    types:
+      - closed
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Cleanup mode
+        required: true
+        default: branch
+        type: choice
+        options:
+          - branch
+          - janitor
+      branch:
+        description: Raw Git feature branch to cleanup when mode=branch
+        required: false
+        type: string
+      ttl_days:
+        description: TTL in days when mode=janitor
+        required: false
+        default: "7"
+        type: string
+  schedule:
+    - cron: "17 2 * * *"
+
+concurrency:
+  group: backend-preview-cleanup-${{ github.event_name }}-${{ github.event.pull_request.head.ref || inputs.branch || 'janitor' }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup backend preview resources
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
+      PREVIEW_TTL_DAYS: ${{ vars.PREVIEW_TTL_DAYS || '7' }}
+      PYTHON_VERSION: "3.13"
+      VERCEL_BACKEND_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID || secrets.VERCEL_BACKEND_PROJECT_ID }}
+      VERCEL_BRANCH_ENV_KEYS: ${{ vars.VERCEL_BRANCH_ENV_KEYS }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate cleanup configuration
+        run: |
+          missing=0
+          for name in \
+            NEON_API_KEY \
+            NEON_PROJECT_ID \
+            VERCEL_BACKEND_PROJECT_ID \
+            VERCEL_ORG_ID \
+            VERCEL_TOKEN
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::${name} is required for backend preview cleanup"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Resolve cleanup target
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_BRANCH: ${{ inputs.branch }}
+          MANUAL_MODE: ${{ inputs.mode }}
+          MANUAL_TTL_DAYS: ${{ inputs.ttl_days }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          mode="janitor"
+          branch=""
+          pr_number=""
+          ttl_days="${PREVIEW_TTL_DAYS:-7}"
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            mode="branch"
+            branch="${PR_BRANCH}"
+            pr_number="${PR_NUMBER}"
+          elif [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            mode="${MANUAL_MODE:-branch}"
+            branch="${MANUAL_BRANCH:-}"
+            ttl_days="${MANUAL_TTL_DAYS:-${ttl_days}}"
+          fi
+
+          if [ "${mode}" = "branch" ] && [ -z "${branch}" ]; then
+            echo "::error::branch input is required when cleanup mode is branch"
+            exit 1
+          fi
+
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${pr_number}" >> "$GITHUB_OUTPUT"
+          echo "ttl_days=${ttl_days}" >> "$GITHUB_OUTPUT"
+
+      - name: Cleanup one backend preview branch
+        id: cleanup_branch
+        if: steps.target.outputs.mode == 'branch'
+        run: |
+          python -m app.infrastructure.ci.backend_preview_cleanup branch \
+            --branch "${{ steps.target.outputs.branch }}" \
+            --neon-project-id "${NEON_PROJECT_ID}" \
+            --neon-api-key "${NEON_API_KEY}" \
+            --vercel-project-id "${VERCEL_BACKEND_PROJECT_ID}" \
+            --vercel-team-id "${VERCEL_ORG_ID}" \
+            --vercel-token "${VERCEL_TOKEN}" \
+            --vercel-env-keys "${VERCEL_BRANCH_ENV_KEYS:-}"
+
+      - name: Cleanup stale backend preview resources
+        id: cleanup_janitor
+        if: steps.target.outputs.mode == 'janitor'
+        run: |
+          python -m app.infrastructure.ci.backend_preview_cleanup janitor \
+            --ttl-days "${{ steps.target.outputs.ttl_days }}" \
+            --neon-project-id "${NEON_PROJECT_ID}" \
+            --neon-api-key "${NEON_API_KEY}" \
+            --vercel-project-id "${VERCEL_BACKEND_PROJECT_ID}" \
+            --vercel-team-id "${VERCEL_ORG_ID}" \
+            --vercel-token "${VERCEL_TOKEN}"
+
+      - name: Post cleanup summary to PR
+        if: steps.target.outputs.pr_number != '' && steps.cleanup_branch.outputs.cleanup_summary != ''
+        uses: actions/github-script@v7
+        env:
+          CLEANUP_SUMMARY: ${{ steps.cleanup_branch.outputs.cleanup_summary }}
+          PR_NUMBER: ${{ steps.target.outputs.pr_number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PR_NUMBER);
+            const marker = '<!-- jobai-backend-preview-cleanup -->';
+            const body = `${marker}\n${process.env.CLEANUP_SUMMARY}`;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+            const existing = comments.data.find((comment) => comment.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

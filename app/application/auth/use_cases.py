@@ -2,7 +2,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
-import secrets
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
@@ -13,6 +12,7 @@ from app.application.users.use_cases import CandidateService
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.common.exceptions import UnauthorizedError
 from app.domain.users.entities import Candidate
+from app.domain.users.password_reset_token import PasswordResetToken
 from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email
 
@@ -37,18 +37,6 @@ class RefreshTokenClaims:
     subject: UUID
     jti: str
     expires_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class PasswordResetToken:
-    value: str
-
-    @classmethod
-    def generate(cls) -> "PasswordResetToken":
-        return cls(secrets.token_urlsafe(32))
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def _unauthorized() -> None:

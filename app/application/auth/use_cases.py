@@ -2,9 +2,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
+import secrets
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
-from app.application.auth.ports import RefreshTokenRepository, TokenService
+from app.application.auth.ports import IEmailGateway, RefreshTokenRepository, TokenService
 from app.application.billing.ports import SubscriptionRepository
 from app.application.users.ports import PasswordHasher, UserRepository
 from app.application.users.use_cases import CandidateService
@@ -35,6 +37,18 @@ class RefreshTokenClaims:
     subject: UUID
     jti: str
     expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordResetToken:
+    value: str
+
+    @classmethod
+    def generate(cls) -> "PasswordResetToken":
+        return cls(secrets.token_urlsafe(32))
+
+    def __str__(self) -> str:
+        return self.value
 
 
 def _unauthorized() -> None:
@@ -92,6 +106,13 @@ def _token_extra_from_user(user: Candidate) -> dict[str, str]:
         "role": user.role,
         "email": str(user.email),
     }
+
+
+def _build_password_reset_url(reset_base_url: str, token: PasswordResetToken) -> str:
+    parts = urlsplit(reset_base_url.strip())
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["token"] = token.value
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 class AuthService:
@@ -209,6 +230,23 @@ class LogoutUseCase:
             await self._refresh_token_repo.revoke(token_hash)
         except Exception:
             return None
+
+
+class ForgotPasswordUseCase:
+    def __init__(self, user_repo: UserRepository, email_gateway: IEmailGateway) -> None:
+        self._user_repo = user_repo
+        self._email_gateway = email_gateway
+
+    async def execute(self, *, email: str, reset_base_url: str) -> None:
+        email_vo = Email.from_raw(email)
+        candidate = await self._user_repo.get_by_email(email_vo)
+        if candidate is None:
+            return None
+
+        token = PasswordResetToken.generate()
+        reset_url = _build_password_reset_url(reset_base_url, token)
+        await self._email_gateway.send_password_reset(email_vo, token.value, reset_url)
+        return None
 
 
 @dataclass(slots=True)

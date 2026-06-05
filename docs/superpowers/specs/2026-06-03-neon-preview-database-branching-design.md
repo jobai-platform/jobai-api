@@ -2,21 +2,24 @@
 ## Technical Spec
 
 **Date:** 2026-06-03
-**Status:** Draft — awaiting validation
+**Last updated:** 2026-06-05
+**Status:** Implemented for preview environments — POC accepted
 **Owner:** Backend / Platform
 **Related systems:** Backend API, Frontend Vercel CI/CD, GitHub Actions, Neon Postgres, Alembic, Ollama, MinIO, Langfuse
+**Final ADR:** `docs/adr/adr-0006-neon-preview-database-branching.md`
+**Runbook:** `docs/deployment/neon-preview-environments-runbook.md`
 
 ---
 
 ## 1. Executive Summary
 
-JobAI should evaluate Neon as the managed PostgreSQL provider for isolated feature environments.
+JobAI evaluated and adopted Neon as the managed PostgreSQL provider for isolated feature preview environments.
 
 The target workflow is:
 
 - `main` uses a protected production database.
 - `develop` uses a long-lived anonymized database branch.
-- each feature branch or PR gets an ephemeral Neon branch derived from `develop`.
+- each feature branch or PR gets an ephemeral Neon branch derived from `develop-anonymized`.
 - each feature branch also gets a backend preview deployment wired to that Neon branch.
 - each frontend Vercel preview points to the matching backend preview through `NEXT_PUBLIC_API_BASE_URL`.
 - feature preview resources are deleted when the PR is merged or closed.
@@ -29,7 +32,15 @@ frontend preview
   -> Neon preview branch copied from anonymized develop
 ```
 
-The preview database must not be derived directly from production unless the data is anonymized first.
+The preview database must never be derived directly from production. It must derive from `develop-anonymized`.
+
+Final implementation summary:
+
+- JOB-124 creates or reuses deterministic Neon preview branches.
+- JOB-125 deploys Vercel backend previews and runs protected `/health` smoke tests.
+- JOB-127 defines preview security boundaries.
+- JOB-128 cleans preview branches/deployments on PR close, manual dispatch, and TTL janitor.
+- JOB-129 finalizes Git docs, ADR, runbook, rollback, and Notion summaries.
 
 ---
 
@@ -64,7 +75,31 @@ CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE;
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 ```
 
-The Neon migration must therefore validate extension compatibility before any production decision.
+The POC validated the current hosted preview requirement: PostgreSQL + `pgvector` / `vector`. Local-only `vectorscale`
+and `timescaledb` initialization remains outside the preview runtime until a future compatibility POC proves a need.
+
+---
+
+## 2.1 POC Compatibility Results
+
+Validated and accepted for preview environments:
+
+| Area | Result | Notes |
+|---|---|---|
+| Neon branch lifecycle | Passed | deterministic `preview-*` branch created/reused from `develop-anonymized` |
+| Alembic migrations | Passed | migrations run on Neon preview branches before backend preview deploy |
+| `pgvector` / `vector` | Passed | current migration creates `vector`, `vector(768)`, and HNSW indexes |
+| `vectorscale` | Not required for preview | local Docker initializes it, but current migrations do not require it |
+| `timescaledb` | Not required for preview | local Docker initializes it, but current migrations do not require it |
+| Backend preview | Passed | Vercel deploy connects to branch-specific Neon `DATABASE_URL` |
+| Protected health check | Passed | smoke test uses `npx vercel@latest curl /health --deployment <url>` |
+| Cleanup | Passed | PR close/manual/TTL workflow removes safe preview resources |
+
+Decision boundary:
+
+- Neon is adopted for preview database branching.
+- Production database migration to Neon remains a separate decision.
+- Local Docker remains the full local backend/infra stack.
 
 ---
 
@@ -651,6 +686,20 @@ Rollback means:
 - redeploy previous commit to same preview branch, or
 - delete/recreate the preview DB branch from `develop-anonymized`.
 
+Operational preview reset flow:
+
+```bash
+gh workflow run backend-preview-cleanup.yml \
+  --ref develop \
+  -f mode=branch \
+  -f branch="feature/<ticket>"
+
+gh workflow run backend-preview.yml \
+  --ref "feature/<ticket>"
+```
+
+The cleanup workflow refuses protected branches and non-`preview-*` Neon branches.
+
 ### Develop
 
 Rollback options:
@@ -683,45 +732,54 @@ Production rollback must remain separate and should follow the production runboo
 
 ## 18. Acceptance Criteria
 
-The design is ready for implementation when:
+The design was ready for implementation when:
 
-- Neon extension compatibility is validated.
-- production/develop/preview branch hierarchy is approved.
-- anonymization strategy for develop is approved.
-- backend preview hosting option is selected.
-- frontend/backend workflow coordination is selected.
-- required secrets and variables are listed and created.
-- CORS/auth policy for previews is approved.
-- cleanup policy is approved.
+- Neon extension compatibility was validated for current preview migrations.
+- production/develop/preview branch hierarchy was approved.
+- preview branches were constrained to `develop-anonymized`.
+- backend preview hosting was selected as Vercel for the POC.
+- required secrets and variables were listed and created.
+- CORS/auth policy for previews was documented.
+- cleanup policy was implemented with PR close, manual fallback, and TTL janitor.
 
-The POC is successful when:
+The POC is successful and accepted because:
 
 - pushing a feature branch creates a Neon preview branch from `develop-anonymized`.
 - Alembic migrations run successfully on that branch.
 - backend preview starts with that branch's `DATABASE_URL`.
-- `/health` succeeds on the backend preview.
-- frontend preview can call that backend preview.
-- closing/merging the PR deletes the preview backend and Neon branch.
+- `/health` succeeds on the backend preview through protected Vercel access.
+- cleanup workflow can remove matching preview backend deployments and Neon branches.
+- Notion contains readable summaries and links back to Git docs.
 
 ---
 
-## 19. Open Questions
+## 19. Remaining Open Questions
 
-1. Where will backend previews be hosted: existing VPS, Fly.io, Render, Railway, or another provider?
-2. Are frontend and backend in the same GitHub repository or separate repositories?
-3. Can the frontend workflow wait for backend preview URL before Vercel deploy?
-4. Should OAuth be disabled in feature previews for the first iteration?
-5. What is the canonical anonymization source for `develop-anonymized`?
-6. Is `timescaledb` required at runtime, or is `pgvector` enough for current preview/prod use?
-7. Is `vectorscale` mandatory, or can HNSW `pgvector` indexes satisfy the MVP?
-8. Should preview branches be created on every feature push or only when a PR is opened?
-9. What TTL should be applied to stale preview DB branches?
-10. Should branch-specific Vercel variables be managed from backend CI or a separate orchestration workflow?
+Resolved during the cycle:
+
+- Backend previews are hosted on Vercel for the POC.
+- Preview DB branches are created on feature branch pushes by the backend preview workflow.
+- Default TTL is `7` days unless `PREVIEW_TTL_DAYS` overrides it.
+- Current preview migrations require `pgvector`, not `vectorscale` or `timescaledb`.
+
+Still open for future cycles:
+
+1. How should frontend previews consume the matching backend preview URL once JOB-126 is implemented?
+2. What is the canonical refresh cadence and owner for `develop-anonymized`?
+3. Should production eventually move to Neon, or should Neon remain preview/develop only?
+4. Should preview object storage use isolated buckets or branch prefixes?
+5. Should Vercel branch-specific environment variables be managed by backend CI or a cross-repo orchestration workflow?
 
 ---
 
 ## 20. References
 
+- Final ADR: `docs/adr/adr-0006-neon-preview-database-branching.md`
+- Preview runbook: `docs/deployment/neon-preview-environments-runbook.md`
+- Backend Vercel preview runbook: `docs/deployment/backend-preview-vercel-runbook.md`
+- Preview security ADR: `docs/adr/adr-0003-preview-security-policy.md`
+- Backend preview ADR: `docs/adr/adr-0004-vercel-backend-preview-per-feature-branch.md`
+- Cleanup safety ADR: `docs/adr/adr-0005-preview-cleanup-safety-policy.md`
 - Neon GitHub Actions branching: https://neon.com/docs/guides/branching-github-actions
 - Neon Vercel integration overview: https://neon.com/docs/guides/vercel/
 - Neon database branching guide: https://neon.com/blog/practical-guide-to-database-branching

@@ -1,8 +1,11 @@
  # Neon Preview Database Branching — Implementation Plan
 
 **Date:** 2026-06-03
-**Status:** Draft — awaiting validation
+**Last updated:** 2026-06-05
+**Status:** Cycle 38 implemented for preview environments
 **Spec:** `docs/superpowers/specs/2026-06-03-neon-preview-database-branching-design.md`
+**Final ADR:** `docs/adr/adr-0006-neon-preview-database-branching.md`
+**Runbook:** `docs/deployment/neon-preview-environments-runbook.md`
 
 ---
 
@@ -25,15 +28,20 @@ The implementation must protect production, avoid personal-data exposure, run Al
 
 Do not migrate everything at once.
 
-Use this sequence:
+Completed cycle sequence:
 
 1. POC Neon compatibility.
-2. Create long-lived anonymized develop database.
-3. Add backend preview deployment.
-4. Connect frontend preview to backend preview.
-5. Add cleanup and TTL.
-6. Harden production path.
-7. Decide whether production should move to Neon.
+2. Define preview security policy.
+3. Add Neon branch lifecycle workflow.
+4. Add Vercel backend preview deployment.
+5. Add cleanup and TTL janitor.
+6. Finalize docs, ADR, runbook, rollback, and Notion summaries.
+
+Future-cycle items:
+
+- Connect frontend preview to the matching backend preview URL.
+- Finalize `develop-anonymized` refresh cadence and owner.
+- Decide separately whether production should move to Neon.
 
 ---
 
@@ -41,19 +49,19 @@ Use this sequence:
 
 ### Tasks
 
-- [ ] Confirm backend preview hosting provider.
+- [x] Confirm backend preview hosting provider: Vercel for the POC.
 - [ ] Confirm whether frontend/backend repos are separate or monorepo.
-- [ ] Confirm whether feature DB branches are created on push or PR open.
-- [ ] Confirm OAuth behavior in previews.
-- [ ] Confirm object storage strategy for previews.
+- [x] Confirm whether feature DB branches are created on push or PR open: feature branch push.
+- [x] Confirm OAuth behavior in previews: dummy/disabled for ephemeral previews unless explicitly configured.
+- [x] Confirm object storage strategy for previews: no production object storage reads; future bucket/prefix isolation remains open.
 - [ ] Confirm anonymization source and refresh frequency for `develop-anonymized`.
-- [ ] Confirm whether `timescaledb` and `vectorscale` are hard requirements.
+- [x] Confirm whether `timescaledb` and `vectorscale` are hard requirements: not required for current preview migrations.
 
 ### Deliverables
 
-- [ ] Approved technical spec.
-- [ ] Approved implementation plan.
-- [ ] Decision record or ADR if Neon is adopted beyond POC.
+- [x] Approved technical spec.
+- [x] Approved implementation plan.
+- [x] Decision record or ADR if Neon is adopted beyond POC.
 
 ### Acceptance Criteria
 
@@ -420,10 +428,11 @@ auth endpoints if enabled
 
 ### Tasks
 
-- [ ] Update `.env.example`.
-- [ ] Add backend preview runbook.
-- [ ] Add Neon branching ADR.
-- [ ] Add troubleshooting guide:
+- [x] Update `.env.example`.
+- [x] Add backend preview runbook: `docs/deployment/backend-preview-vercel-runbook.md`.
+- [x] Add Neon preview environments runbook: `docs/deployment/neon-preview-environments-runbook.md`.
+- [x] Add Neon branching ADR: `docs/adr/adr-0006-neon-preview-database-branching.md`.
+- [x] Add troubleshooting guide:
 
 ```text
 Neon branch creation fails
@@ -434,7 +443,7 @@ frontend points to wrong backend
 cleanup fails
 ```
 
-- [ ] Publish readable summary to Notion.
+- [x] Publish readable summary to Notion.
 
 ### Acceptance Criteria
 

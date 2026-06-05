@@ -1,9 +1,9 @@
 # Backend Preview Vercel Runbook
 
 **Owner:** Forge
-**Last updated:** 2026-06-04
-**Related ticket:** JOB-125
-**Workflow:** `.github/workflows/backend-preview.yml`
+**Last updated:** 2026-06-05
+**Related tickets:** JOB-125, JOB-128
+**Workflows:** `.github/workflows/backend-preview.yml`, `.github/workflows/backend-preview-cleanup.yml`
 
 ## Purpose
 
@@ -19,6 +19,7 @@ feature branch push
   -> Vercel FastAPI preview deploy
   -> Vercel-protected /health smoke test
   -> GitHub summary + PR comment
+  -> PR close/manual/TTL cleanup
 ```
 
 ## Runtime Decision
@@ -56,7 +57,9 @@ Optional variables:
 
 ```text
 PREVIEW_FRONTEND_ORIGIN
+PREVIEW_TTL_DAYS
 VERCEL_BACKEND_PUBLIC_API_BASE_URL
+VERCEL_BRANCH_ENV_KEYS
 ```
 
 ## Required Vercel Configuration
@@ -108,6 +111,79 @@ After the POC, move long-lived secrets to the chosen secret-management process a
 7. Runs `npx vercel@latest deploy` with preview runtime/build env vars.
 8. Runs `npx vercel@latest curl /health --deployment <deployment-url>` for the protected smoke test.
 9. Writes GitHub summary and updates the PR preview comment.
+
+## How Cleanup Works
+
+Cleanup is handled by `.github/workflows/backend-preview-cleanup.yml`.
+
+Triggers:
+
+- `pull_request.closed` deletes resources for the closed PR head branch.
+- `workflow_dispatch` supports manual cleanup for one branch or a manual TTL janitor run.
+- `schedule` runs the TTL janitor daily.
+
+Cleanup modes:
+
+| Mode | Target | Behavior |
+|---|---|---|
+| `branch` | raw Git feature branch | derives the Neon preview branch with the same sanitizer as creation |
+| `janitor` | `preview-*` resources older than TTL | deletes stale Neon branches and safe stale Vercel deployments |
+
+Manual branch cleanup example:
+
+```text
+Workflow: Backend Preview Cleanup
+mode=branch
+branch=feature/job-128-09-cicd-cleanup-preview-backend-neon-branch-and-branch
+```
+
+Manual janitor example:
+
+```text
+Workflow: Backend Preview Cleanup
+mode=janitor
+ttl_days=7
+```
+
+The cleanup helper refuses protected targets before any delete call:
+
+```text
+main
+develop
+develop-anonymized
+production
+prod
+```
+
+Neon deletion is also limited to branch names starting with `preview-`.
+
+### Cleanup Resources
+
+The cleanup workflow deletes:
+
+- Neon preview branch matching `sanitize_branch_name(<feature-branch>)`.
+- Vercel backend deployments returned for the target branch.
+- Optional branch-specific Vercel env vars listed in `VERCEL_BRANCH_ENV_KEYS`.
+
+JOB-125 passes runtime env vars directly to `vercel deploy`, so `VERCEL_BRANCH_ENV_KEYS` is usually empty for the current
+backend POC. Keep it available for future CI-managed branch variables.
+
+### TTL Janitor
+
+Default TTL is `7` days through `PREVIEW_TTL_DAYS`.
+
+The janitor deletes stale Neon branches when:
+
+- the branch name starts with `preview-`;
+- the branch is older than the TTL.
+
+The janitor deletes stale Vercel deployments only when:
+
+- the deployment is older than the TTL;
+- deployment metadata exposes a non-protected Git branch;
+- the deployment is not production.
+
+If Vercel metadata is missing, the janitor skips the deployment instead of guessing.
 
 ## Important Implementation Notes
 
@@ -252,6 +328,37 @@ Fix:
 - Do not pass `--token` to `vercel curl`.
 - Export `VERCEL_TOKEN` in the environment instead.
 
+### Cleanup Refuses A Branch
+
+Symptom:
+
+```text
+Refusing to cleanup protected branch ref
+Refusing to cleanup non-preview Neon branch
+```
+
+Fix:
+
+- Pass the raw feature branch name to manual cleanup.
+- Do not pass `develop`, `develop-anonymized`, `main`, `production`, or a raw Neon branch id.
+- Let the cleanup helper derive the Neon preview branch internally.
+
+### Cleanup Does Not Delete Vercel Deployments In Janitor Mode
+
+Symptom:
+
+```text
+No stale preview resources older than 7 days
+```
+
+or Neon branches are deleted but Vercel deployments remain.
+
+Fix:
+
+- Confirm the deployments expose branch metadata in Vercel.
+- If metadata is missing, use manual branch cleanup or delete the deployment in Vercel.
+- Do not loosen janitor matching to age-only deletion; that could delete unrelated previews.
+
 ## Validation Commands
 
 Local checks used for JOB-125:
@@ -273,6 +380,17 @@ PY
 poetry run pytest tests/unit/test_backend_preview_deployment.py tests/unit/test_neon_branch_lifecycle.py -q
 poetry run ruff check app/core/dependency.py tests/unit/test_backend_preview_deployment.py tests/unit/test_neon_branch_lifecycle.py
 bash -n scripts/vercel-install.sh
+
+python - <<'PY'
+import yaml
+from pathlib import Path
+with Path('.github/workflows/backend-preview-cleanup.yml').open() as f:
+    yaml.safe_load(f)
+print('cleanup yaml ok')
+PY
+
+poetry run pytest tests/unit/test_backend_preview_cleanup.py tests/unit/test_neon_branch_lifecycle.py -q
+poetry run ruff check app/infrastructure/ci/backend_preview_cleanup.py tests/unit/test_backend_preview_cleanup.py
 ```
 
 Expected result:

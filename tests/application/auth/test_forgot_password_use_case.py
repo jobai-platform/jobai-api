@@ -11,6 +11,8 @@ from app.domain.users.entities import Candidate
 from app.domain.users.value_objects import Email, HashedPassword
 from tests.fakes.users.in_memory_user_repo import InMemoryUserRepository
 
+PASSWORD_RESET_SIGNING_KEY = "test-password-reset-signing-key"
+
 
 @dataclass(frozen=True, slots=True)
 class SentPasswordResetEmail:
@@ -33,7 +35,15 @@ def _make_use_case(
 ) -> tuple[ForgotPasswordUseCase, InMemoryUserRepository, FakeEmailGateway]:
     user_repo = user_repo or InMemoryUserRepository()
     email_gateway = email_gateway or FakeEmailGateway()
-    return ForgotPasswordUseCase(user_repo=user_repo, email_gateway=email_gateway), user_repo, email_gateway
+    return (
+        ForgotPasswordUseCase(
+            user_repo=user_repo,
+            email_gateway=email_gateway,
+            signing_key=PASSWORD_RESET_SIGNING_KEY,
+        ),
+        user_repo,
+        email_gateway,
+    )
 
 
 @pytest.mark.asyncio
@@ -57,6 +67,7 @@ async def test_forgot_password_sends_reset_email_when_user_exists() -> None:
     sent_email = email_gateway.sent_password_reset_emails[0]
     assert sent_email.email == Email.from_raw("candidate@example.com")
     assert sent_email.token
+    assert "." in sent_email.token
     assert sent_email.token in sent_email.reset_url
     assert sent_email.reset_url.startswith("https://app.jobai.test/reset-password?token=")
 

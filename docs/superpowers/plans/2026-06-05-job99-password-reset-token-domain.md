@@ -21,6 +21,7 @@ hexagonal boundaries and TDD-first delivery.
 7. [x] Validate focused domain tests.
 8. [x] Validate full domain suite.
 9. [x] Commit, push, and open PR.
+10. [x] QA correction: add the missing HMAC signature contract and tampering tests.
 
 ## Decisions
 
@@ -28,6 +29,8 @@ hexagonal boundaries and TDD-first delivery.
 |---|---|
 | Keep TTL as `PASSWORD_RESET_TOKEN_TTL` | Makes the 30-minute invariant explicit in the domain |
 | Treat `now` as injectable | Keeps tests deterministic without framework or time mocks |
+| Sign `value` and `created_at` with HMAC-SHA256 | Prevents token or TTL tampering before consumption |
+| Inject the signing key into `ForgotPasswordUseCase` | Keeps secrets outside the domain layer |
 | Raise `ValueError` for consumed/expired tokens | Matches the ticket's domain invariant requirement |
 | Reuse the domain type from JOB-100 code | Avoids duplicate password reset token definitions |
 
@@ -44,5 +47,6 @@ poetry run pytest tests/domain/ -q
 - [x] EC7: a second `consume()` raises `ValueError`.
 - [x] EC8: `t+31min` returns expired.
 - [x] Token generation returns a non-empty URL-safe value.
+- [x] Token value and creation time are covered by a constant-time validated signature.
 - [x] Domain implementation imports stdlib only.
 - [x] Full domain tests pass.

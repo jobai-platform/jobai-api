@@ -99,7 +99,7 @@ def _token_extra_from_user(user: Candidate) -> dict[str, str]:
 def _build_password_reset_url(reset_base_url: str, token: PasswordResetToken) -> str:
     parts = urlsplit(reset_base_url.strip())
     query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["token"] = token.value
+    query["token"] = token.signed_value
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
@@ -221,9 +221,15 @@ class LogoutUseCase:
 
 
 class ForgotPasswordUseCase:
-    def __init__(self, user_repo: UserRepository, email_gateway: IEmailGateway) -> None:
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        email_gateway: IEmailGateway,
+        signing_key: str,
+    ) -> None:
         self._user_repo = user_repo
         self._email_gateway = email_gateway
+        self._signing_key = signing_key
 
     async def execute(self, *, email: str, reset_base_url: str) -> None:
         email_vo = Email.from_raw(email)
@@ -231,9 +237,9 @@ class ForgotPasswordUseCase:
         if candidate is None:
             return None
 
-        token = PasswordResetToken.generate()
+        token = PasswordResetToken.generate(signing_key=self._signing_key)
         reset_url = _build_password_reset_url(reset_base_url, token)
-        await self._email_gateway.send_password_reset(email_vo, token.value, reset_url)
+        await self._email_gateway.send_password_reset(email_vo, token.signed_value, reset_url)
         return None
 
 

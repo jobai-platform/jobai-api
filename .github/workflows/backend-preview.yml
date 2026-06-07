@@ -149,6 +149,7 @@ jobs:
           set -euo pipefail
 
           preview_frontend_origin="${PREVIEW_FRONTEND_ORIGIN:-https://${{ steps.preview.outputs.preview_slug }}.preview.sovrum.dev}"
+          cors_allow_origin_regex='^https://jobai-frontend-[a-z0-9]+-rpsantosvix-gmailcoms-projects\.vercel\.app$'
           public_api_base_url="${{ vars.VERCEL_BACKEND_PUBLIC_API_BASE_URL }}"
           public_api_base_url="${public_api_base_url:-https://jobai-api.vercel.app}"
 
@@ -163,6 +164,7 @@ jobs:
             --env PUBLIC_API_BASE_URL="${public_api_base_url}" \
             --env FRONTEND_ORIGIN="${preview_frontend_origin}" \
             --env CORS_ALLOW_ORIGINS="${preview_frontend_origin}" \
+            --env CORS_ALLOW_ORIGIN_REGEX="${cors_allow_origin_regex}" \
             --env LINKEDIN_CLIENT_ID=dummy \
             --env LINKEDIN_CLIENT_SECRET=dummy \
             --env LINKEDIN_REDIRECT_URI="${public_api_base_url}/api/v1/auth/linkedin/callback" \
@@ -176,6 +178,7 @@ jobs:
             --build-env PUBLIC_API_BASE_URL="${public_api_base_url}" \
             --build-env FRONTEND_ORIGIN="${preview_frontend_origin}" \
             --build-env CORS_ALLOW_ORIGINS="${preview_frontend_origin}" \
+            --build-env CORS_ALLOW_ORIGIN_REGEX="${cors_allow_origin_regex}" \
             --build-env LINKEDIN_CLIENT_ID=dummy \
             --build-env LINKEDIN_CLIENT_SECRET=dummy \
             --build-env LANGFUSE_PUBLIC_KEY= \

@@ -1,4 +1,5 @@
 import os
+import re
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,17 @@ def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> li
   if "*" in origins:
     raise ValueError("CORS_ALLOW_ORIGINS cannot contain '*' when credentials are enabled")
   return origins
+
+
+def _parse_cors_allow_origin_regex(raw_value: str | None) -> str | None:
+  origin_regex = (raw_value or "").strip()
+  if not origin_regex:
+    return None
+  try:
+    re.compile(origin_regex)
+  except re.error as exc:
+    raise ValueError("CORS_ALLOW_ORIGIN_REGEX must be a valid regex") from exc
+  return origin_regex
 
 
 def _parse_app_env(raw_value: str | None) -> str:
@@ -41,6 +53,9 @@ class Settings:
   CORS_ALLOW_ORIGINS: list[str] = _parse_cors_allow_origins(
       os.getenv("CORS_ALLOW_ORIGINS"),
       _FRONTEND_ORIGIN,
+  )
+  CORS_ALLOW_ORIGIN_REGEX: str | None = _parse_cors_allow_origin_regex(
+      os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
   )
   DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
   DATABASE_URL_SYNC: str = os.getenv("DATABASE_URL_SYNC", DATABASE_URL)

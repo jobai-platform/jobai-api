@@ -27,6 +27,7 @@ In scope:
 - environment-aware Resend credential selection;
 - application, infrastructure, and migration tests;
 - a real Resend sandbox integration test guarded by environment variables.
+- preview CORS support for dynamic URLs of the `jobai-frontend` Vercel project.
 
 Out of scope:
 
@@ -214,6 +215,14 @@ Given `APP_ENV=production`,
 When `ResendEmailSender` is constructed,
 Then it prefers `RESEND_API_KEY_PROD`.
 
+Given a dynamic `jobai-frontend` Vercel preview origin,
+When the browser sends a credentialed CORS preflight,
+Then the backend allows the origin through the anchored project-specific regex.
+
+Given another `vercel.app` project,
+When it sends the same preflight,
+Then the backend rejects the origin.
+
 ## Validation
 
 ```bash
@@ -228,8 +237,9 @@ poetry run pytest tests/ -q
 Validated on 2026-06-07:
 
 - focused JOB-101 tests: `38 passed`;
-- domain and application suites: `245 passed`;
-- full non-integration suite: `334 passed`, `112 deselected`;
+- domain and application suites: `246 passed`;
+- full non-integration suite: `340 passed`, `112 deselected`;
+- CORS configuration and preflight tests: `20 passed`;
 - password-reset repository integration tests: `4 passed`;
 - real Resend sandbox test: skipped because sandbox credentials were not configured;
 - targeted Ruff checks: passed;

@@ -39,7 +39,8 @@ single-use protection, secret isolation, or hexagonal layer boundaries.
 17. [x] Update `.env.example` and any deployment configuration required by the new variables.
 18. [x] Run focused tests, layer suites, migration smoke test, and full non-integration suite.
 19. [x] Run the real sandbox test when credentials are available; otherwise document the verified skip.
-20. [ ] Commit, push, open a GitHub PR, and update JOB-101 with validation evidence.
+20. [x] Add project-scoped dynamic preview CORS tests and configuration requested by Atlas.
+21. [ ] Commit, push, update the GitHub PR, and update JOB-101 with validation evidence.
 
 ## Files Expected To Change
 

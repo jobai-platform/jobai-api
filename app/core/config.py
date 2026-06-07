@@ -55,6 +55,20 @@ class Settings:
       "STRIPE_ENTERPRISE_PRICE_LOOKUP_KEY", "jobai_enterprise_monthly",
   )
 
+  # Password reset and transactional email
+  PASSWORD_RESET_SIGNING_KEY: str = os.getenv(
+      "PASSWORD_RESET_SIGNING_KEY",
+      os.getenv("JWT_SECRET", SECRET_KEY),
+  )
+  RESEND_API_KEY_SANDBOX: str = os.getenv("RESEND_API_KEY_SANDBOX", "")
+  RESEND_API_KEY_PROD: str = os.getenv("RESEND_API_KEY_PROD", "")
+  RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+  RESEND_FROM_EMAIL: str = os.getenv(
+      "RESEND_FROM_EMAIL",
+      "JobAI <onboarding@resend.dev>",
+  )
+  RESEND_TIMEOUT: float = float(os.getenv("RESEND_TIMEOUT", "10.0"))
+
   # LinkedIn OAuth
   LINKEDIN_CLIENT_ID: str = os.getenv("LINKEDIN_CLIENT_ID", "")
   LINKEDIN_CLIENT_SECRET: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")

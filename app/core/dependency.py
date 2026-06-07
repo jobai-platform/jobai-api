@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
@@ -20,8 +21,18 @@ from app.application.ai_analysis.use_cases import (
 )
 from app.application.auth.linkedin_callback_use_case import LinkedInCallbackUseCase
 from app.application.auth.linkedin_oauth_use_case import LinkedInOAuthUseCase
-from app.application.auth.ports import RefreshTokenRepository
-from app.application.auth.use_cases import LogoutUseCase, RefreshTokenUseCase, RegisterUseCase
+from app.application.auth.ports import (
+    IEmailGateway,
+    PasswordResetTokenRepository,
+    RefreshTokenRepository,
+)
+from app.application.auth.use_cases import (
+    ForgotPasswordUseCase,
+    LogoutUseCase,
+    RefreshTokenUseCase,
+    RegisterUseCase,
+    ResetPasswordUseCase,
+)
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
@@ -61,6 +72,7 @@ from app.domain.ai_analysis.services.model_router import ModelRouter
 from app.domain.ai_analysis.value_objects import ProviderConfig
 from app.infrastructure.billing.stripe_gateway import StripeGateway
 from app.infrastructure.config.database import get_async_session
+from app.infrastructure.email.resend_gateway import ResendEmailSender
 from app.infrastructure.persistence.repositories.ai_analysis_sqlalchemy import (
     SQLAlchemyAIAnalysisRepository,
 )
@@ -72,6 +84,9 @@ from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy im
 )
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import (
     JobPostingSQLAlchemyRepository,
+)
+from app.infrastructure.persistence.repositories.password_reset_token_sqlalchemy import (
+    SQLAlchemyPasswordResetTokenRepository,
 )
 from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
     SQLAlchemyRefreshTokenRepository,
@@ -103,6 +118,55 @@ def get_refresh_token_repository(
     session: DbSession,
 ) -> RefreshTokenRepository:
     return SQLAlchemyRefreshTokenRepository(session=session)
+
+
+def get_password_reset_token_repository(
+    session: DbSession,
+) -> PasswordResetTokenRepository:
+    return SQLAlchemyPasswordResetTokenRepository(session=session)
+
+
+async def get_email_gateway() -> AsyncIterator[IEmailGateway]:
+    sender = ResendEmailSender(
+        app_env=settings.APP_ENV,
+        from_email=settings.RESEND_FROM_EMAIL,
+        timeout=settings.RESEND_TIMEOUT,
+    )
+    try:
+        yield sender
+    finally:
+        await sender.aclose()
+
+
+def get_forgot_password_use_case(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    token_repo: Annotated[
+        PasswordResetTokenRepository,
+        Depends(get_password_reset_token_repository),
+    ],
+    email_gateway: Annotated[IEmailGateway, Depends(get_email_gateway)],
+) -> ForgotPasswordUseCase:
+    return ForgotPasswordUseCase(
+        user_repo=user_repo,
+        email_gateway=email_gateway,
+        token_repo=token_repo,
+        signing_key=settings.PASSWORD_RESET_SIGNING_KEY,
+    )
+
+
+def get_reset_password_use_case(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+    token_repo: Annotated[
+        PasswordResetTokenRepository,
+        Depends(get_password_reset_token_repository),
+    ],
+) -> ResetPasswordUseCase:
+    return ResetPasswordUseCase(
+        user_repo=user_repo,
+        token_repo=token_repo,
+        password_hasher=PasswordServiceAdapter(),
+        signing_key=settings.PASSWORD_RESET_SIGNING_KEY,
+    )
 
 
 def get_refresh_token_use_case(

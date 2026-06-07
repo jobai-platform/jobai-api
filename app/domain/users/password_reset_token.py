@@ -35,6 +35,25 @@ class PasswordResetToken:
             created_at=created_at,
         )
 
+    @classmethod
+    def from_signed_value(
+        cls,
+        signed_value: str,
+        *,
+        created_at: datetime,
+        consumed_at: datetime | None = None,
+    ) -> "PasswordResetToken":
+        parts = signed_value.split(".")
+        if len(parts) != 2 or not all(part.strip() for part in parts):
+            raise ValueError("Password reset token is malformed")
+        value, signature = parts
+        return cls(
+            value=value,
+            signature=signature,
+            created_at=created_at,
+            consumed_at=consumed_at,
+        )
+
     @property
     def signed_value(self) -> str:
         return f"{self.value}.{self.signature}"

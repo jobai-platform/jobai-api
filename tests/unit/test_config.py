@@ -153,6 +153,36 @@ def test_settings_cors_allow_origins_defaults_to_frontend_origin(monkeypatch):
     assert config_module.Settings.CORS_ALLOW_ORIGINS == ["https://app.jobai.test"]
 
 
+def test_settings_cors_allow_origin_regex_defaults_to_none(monkeypatch):
+    monkeypatch.delenv("CORS_ALLOW_ORIGIN_REGEX", raising=False)
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.CORS_ALLOW_ORIGIN_REGEX is None
+
+
+def test_settings_cors_allow_origin_regex_reads_env(monkeypatch):
+    origin_regex = (
+        r"^https://jobai-frontend-[a-z0-9]+-"
+        r"rpsantosvix-gmailcoms-projects\.vercel\.app$"
+    )
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", origin_regex)
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.CORS_ALLOW_ORIGIN_REGEX == origin_regex
+
+
+def test_settings_cors_allow_origin_regex_rejects_invalid_regex(monkeypatch):
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "[invalid")
+
+    with pytest.raises(ValueError, match="CORS_ALLOW_ORIGIN_REGEX must be a valid regex"):
+        import app.core.config as config_module
+        importlib.reload(config_module)
+
+
 def test_settings_cors_allow_origins_reads_comma_separated_env(monkeypatch):
     """GIVEN CORS_ALLOW_ORIGINS contains multiple origins
     WHEN Settings is instantiated

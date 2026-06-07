@@ -62,6 +62,15 @@ VERCEL_BACKEND_PUBLIC_API_BASE_URL
 VERCEL_BRANCH_ENV_KEYS
 ```
 
+The backend preview workflow also injects this anchored project-specific regex:
+
+```text
+CORS_ALLOW_ORIGIN_REGEX=^https://jobai-frontend-[a-z0-9]+-rpsantosvix-gmailcoms-projects\.vercel\.app$
+```
+
+It allows credentialed requests from dynamic Vercel previews of the `jobai-frontend` project while rejecting previews
+from unrelated `vercel.app` projects. `CORS_ALLOW_ORIGINS` remains configured for exact develop/production origins.
+
 ## Required Vercel Configuration
 
 The backend project must be linked to the repository and configured for the FastAPI preview path.

@@ -206,10 +206,12 @@ Checklist:
 ```text
 FRONTEND_ORIGIN=https://<frontend-preview>.vercel.app
 CORS_ALLOW_ORIGINS=https://<frontend-preview>.vercel.app
+CORS_ALLOW_ORIGIN_REGEX=^https://jobai-frontend-[a-z0-9]+-rpsantosvix-gmailcoms-projects\.vercel\.app$
 PUBLIC_API_BASE_URL=<backend-public-api-base-url>
 ```
 
-4. Confirm the browser request origin exactly matches `CORS_ALLOW_ORIGINS`.
+4. Confirm the browser request origin either exactly matches `CORS_ALLOW_ORIGINS` or matches the anchored
+   `CORS_ALLOW_ORIGIN_REGEX`.
 5. Re-run the backend preview workflow if the backend was deployed before the frontend URL was known.
 
 Security rule:

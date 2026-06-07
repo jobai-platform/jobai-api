@@ -150,3 +150,34 @@ def test_generate_rejects_empty_signing_key() -> None:
 def test_password_reset_token_rejects_naive_created_at() -> None:
     with pytest.raises(ValueError, match="created_at must be timezone-aware"):
         PasswordResetToken(value="reset-token", signature="signature", created_at=datetime(2026, 6, 5, 10, 0))
+
+
+def test_password_reset_token_reconstructs_from_signed_value() -> None:
+    created_at = datetime(2026, 6, 5, 10, 0, tzinfo=UTC)
+    generated = PasswordResetToken.generate(signing_key=SIGNING_KEY, now=created_at)
+
+    reconstructed = PasswordResetToken.from_signed_value(
+        generated.signed_value,
+        created_at=created_at,
+    )
+
+    assert reconstructed == generated
+    assert reconstructed.has_valid_signature(signing_key=SIGNING_KEY) is True
+
+
+@pytest.mark.parametrize(
+    "signed_value",
+    [
+        "",
+        "missing-signature",
+        ".signature",
+        "value.",
+        "value.signature.extra",
+    ],
+)
+def test_password_reset_token_rejects_malformed_signed_value(signed_value: str) -> None:
+    with pytest.raises(ValueError, match="Password reset token is malformed"):
+        PasswordResetToken.from_signed_value(
+            signed_value,
+            created_at=datetime(2026, 6, 5, 10, 0, tzinfo=UTC),
+        )

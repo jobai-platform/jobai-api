@@ -1,4 +1,5 @@
 import os
+import re
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,17 @@ def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> li
   if "*" in origins:
     raise ValueError("CORS_ALLOW_ORIGINS cannot contain '*' when credentials are enabled")
   return origins
+
+
+def _parse_cors_allow_origin_regex(raw_value: str | None) -> str | None:
+  origin_regex = (raw_value or "").strip()
+  if not origin_regex:
+    return None
+  try:
+    re.compile(origin_regex)
+  except re.error as exc:
+    raise ValueError("CORS_ALLOW_ORIGIN_REGEX must be a valid regex") from exc
+  return origin_regex
 
 
 def _parse_app_env(raw_value: str | None) -> str:
@@ -42,6 +54,9 @@ class Settings:
       os.getenv("CORS_ALLOW_ORIGINS"),
       _FRONTEND_ORIGIN,
   )
+  CORS_ALLOW_ORIGIN_REGEX: str | None = _parse_cors_allow_origin_regex(
+      os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
+  )
   DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
   DATABASE_URL_SYNC: str = os.getenv("DATABASE_URL_SYNC", DATABASE_URL)
   DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
@@ -54,6 +69,20 @@ class Settings:
   STRIPE_ENTERPRISE_PRICE_LOOKUP_KEY: str = os.getenv(
       "STRIPE_ENTERPRISE_PRICE_LOOKUP_KEY", "jobai_enterprise_monthly",
   )
+
+  # Password reset and transactional email
+  PASSWORD_RESET_SIGNING_KEY: str = os.getenv(
+      "PASSWORD_RESET_SIGNING_KEY",
+      os.getenv("JWT_SECRET", SECRET_KEY),
+  )
+  RESEND_API_KEY_SANDBOX: str = os.getenv("RESEND_API_KEY_SANDBOX", "")
+  RESEND_API_KEY_PROD: str = os.getenv("RESEND_API_KEY_PROD", "")
+  RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+  RESEND_FROM_EMAIL: str = os.getenv(
+      "RESEND_FROM_EMAIL",
+      "JobAI <onboarding@resend.dev>",
+  )
+  RESEND_TIMEOUT: float = float(os.getenv("RESEND_TIMEOUT", "10.0"))
 
   # LinkedIn OAuth
   LINKEDIN_CLIENT_ID: str = os.getenv("LINKEDIN_CLIENT_ID", "")

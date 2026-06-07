@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID
 
 from app.domain.users.refresh_token import RefreshToken
 from app.domain.users.value_objects import Email, LinkedInProfile
@@ -10,6 +13,34 @@ class IEmailGateway(ABC):
 
     @abstractmethod
     async def send_password_reset(self, email: Email, token: str, reset_url: str) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordResetTokenRecord:
+    candidate_id: UUID
+    token_hash: str
+    created_at: datetime
+    consumed_at: datetime | None = None
+
+
+class PasswordResetTokenRepository(ABC):
+    @abstractmethod
+    async def save(
+        self,
+        *,
+        candidate_id: UUID,
+        token_hash: str,
+        created_at: datetime,
+    ) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def find_by_token_hash(self, token_hash: str) -> PasswordResetTokenRecord | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def consume_if_available(self, token_hash: str, *, consumed_at: datetime) -> bool:
         raise NotImplementedError
 
 

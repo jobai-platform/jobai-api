@@ -22,7 +22,7 @@ Add the forgot-password and reset-password HTTP endpoints on top of the complete
 9. [x] Add design, plan, and API integration documentation.
 10. [x] Run focused tests and presentation regression tests.
 11. [x] Run Ruff, Black check, and mypy on touched application files.
-12. [ ] Commit, push, and create a GitHub PR targeting `develop`.
+12. [x] Commit, push, and create GitHub PR #52 targeting `develop`.
 
 ## Expected Files
 

@@ -10,6 +10,18 @@ _D4_PATTERN_DIGIT = re.compile(r"\d")
 _D4_PATTERN_SPECIAL = re.compile(r"[^A-Za-z0-9]")
 
 
+def _validate_password_policy(value: str) -> str:
+    if len(value) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not _D4_PATTERN_UPPER.search(value):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not _D4_PATTERN_DIGIT.search(value):
+        raise ValueError("Password must contain at least one digit")
+    if not _D4_PATTERN_SPECIAL.search(value):
+        raise ValueError("Password must contain at least one special character")
+    return value
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
@@ -19,15 +31,21 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_d4(cls, v: str) -> str:
-        if len(v) < 12:
-            raise ValueError("Password must be at least 12 characters")
-        if not _D4_PATTERN_UPPER.search(v):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not _D4_PATTERN_DIGIT.search(v):
-            raise ValueError("Password must contain at least one digit")
-        if not _D4_PATTERN_SPECIAL.search(v):
-            raise ValueError("Password must contain at least one special character")
-        return v
+        return _validate_password_policy(v)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return _validate_password_policy(value)
 
 
 class RegisterResponse(BaseModel):

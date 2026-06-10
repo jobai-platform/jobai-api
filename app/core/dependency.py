@@ -524,6 +524,8 @@ UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 RefreshTokenUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_token_use_case)]
 LogoutUseCaseDep = Annotated[LogoutUseCase, Depends(get_logout_use_case)]
 RegisterUseCaseDep = Annotated[RegisterUseCase, Depends(get_register_use_case)]
+ForgotPasswordUseCaseDep = Annotated[ForgotPasswordUseCase, Depends(get_forgot_password_use_case)]
+ResetPasswordUseCaseDep = Annotated[ResetPasswordUseCase, Depends(get_reset_password_use_case)]
 SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
 AssignFreemiumDep = Annotated[
     AssignFreemiumOnSignupUseCase,

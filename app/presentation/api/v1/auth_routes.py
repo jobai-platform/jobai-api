@@ -8,11 +8,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.application.auth.use_cases import AuthService
 from app.core.config import settings
 from app.core.dependency import (
+    ForgotPasswordUseCaseDep,
     LinkedInCallbackUseCaseDep,
     LinkedInOAuthUseCaseDep,
     LogoutUseCaseDep,
     RefreshTokenUseCaseDep,
     RegisterUseCaseDep,
+    ResetPasswordUseCaseDep,
     UserRepositoryDep,
 )
 from app.core.rate_limiting import limiter
@@ -22,12 +24,14 @@ from app.infrastructure.security.password_service import PasswordServiceAdapter
 from app.presentation.api.mappers.users_mapper import to_candidate_read as to_user_read
 from app.presentation.api.v1.schemas.auth import (
     AccessTokenResponse,
+    ForgotPasswordRequest,
     LinkedInAuthUrlResponse,
     LinkedInCallbackRequest,
     LinkedInCallbackResponse,
     LinkedInCodeResponse,
     RegisterRequest,
     RegisterResponse,
+    ResetPasswordRequest,
 )
 from app.presentation.security.deps import get_current_user_id
 
@@ -191,6 +195,43 @@ async def logout(
         samesite="lax",
     )
     return None
+
+
+@router.post(
+    "/password/forgot",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Request a Candidate password reset email",
+    description="Returns the same response whether or not the Candidate account exists.",
+)
+@limiter.limit("5/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    use_case: ForgotPasswordUseCaseDep,
+) -> None:
+    reset_base_url = f"{settings.FRONTEND_ORIGIN.rstrip('/')}/auth/password/reset"
+    await use_case.execute(email=str(body.email), reset_base_url=reset_base_url)
+
+
+@router.post(
+    "/password/reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Reset a Candidate password with a single-use token",
+)
+async def reset_password(
+    body: ResetPasswordRequest,
+    use_case: ResetPasswordUseCaseDep,
+) -> None:
+    try:
+        await use_case.execute(
+            signed_token=body.token,
+            new_password=body.new_password,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        ) from None
 
 
 @router.get(

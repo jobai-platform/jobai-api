@@ -96,6 +96,11 @@ class UserRepository(ABC):
         """Return the user whose linkedin_id matches, or None."""
         raise NotImplementedError()
 
+    @abstractmethod
+    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+        """Update the stripe customer ID for a user."""
+        raise NotImplementedError()
+
 
 class PasswordHasher(ABC):
     """Port pour le hash de mot de passe (adapter : PasswordService)."""

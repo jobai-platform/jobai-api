@@ -19,6 +19,7 @@ class InMemoryUserRepository(UserRepository):
         self._users_by_id: dict[str, Candidate] = {}
         self._users_by_email: dict[str, Candidate] = {}
         self._users_by_linkedin_id: dict[str, Candidate] = {}
+        self._users_stripe_customer_id: dict[str, str | None] = {}
 
     async def get_by_id(self, user_id: UUID) -> Candidate | None:
         return self._users_by_id.get(str(user_id))
@@ -54,6 +55,7 @@ class InMemoryUserRepository(UserRepository):
     async def create(self, user: Candidate) -> Candidate:
         self._users_by_id[str(user.id)] = user
         self._users_by_email[user.email.value] = user
+        self._users_stripe_customer_id[str(user.id)] = None
         if user.linkedin_id:
             self._users_by_linkedin_id[user.linkedin_id] = user
         return user
@@ -84,6 +86,9 @@ class InMemoryUserRepository(UserRepository):
         self._users_by_email[updated.email.value] = updated
         if updated.linkedin_id:
             self._users_by_linkedin_id[updated.linkedin_id] = updated
+        # Preserve existing stripe_customer_id during update
+        if key not in self._users_stripe_customer_id:
+            self._users_stripe_customer_id[key] = None
         return updated
 
     async def delete(self, user_id: UUID) -> None:
@@ -138,6 +143,45 @@ class InMemoryUserRepository(UserRepository):
         self._users_by_id[key] = restored
         self._users_by_email[restored.email.value] = restored
 
+    async def update(self, user_id: UUID, user: Candidate) -> Candidate | None:
+        key = str(user_id)
+        existing = self._users_by_id.get(key)
+        if not existing:
+            return None
+
+        # Partial update semantics: keep existing values if incoming are None
+        updated = Candidate(
+            id=existing.id,
+            email=user.email or existing.email,
+            username=user.username if user.username is not None else existing.username,
+            first_name=user.first_name if user.first_name is not None else existing.first_name,
+            last_name=user.last_name if user.last_name is not None else existing.last_name,
+            hashed_password=user.hashed_password if user.hashed_password is not None else existing.hashed_password,
+            role=user.role or existing.role,
+            is_active=user.is_active if user.is_active is not None else existing.is_active,
+            linkedin_id=user.linkedin_id if user.linkedin_id is not None else existing.linkedin_id,
+            avatar_url=user.avatar_url if user.avatar_url is not None else existing.avatar_url,
+            created_at=existing.created_at,
+            updated_at=user.updated_at or existing.updated_at,
+        )
+
+        self._users_by_id[key] = updated
+        self._users_by_email[updated.email.value] = updated
+        if updated.linkedin_id:
+            self._users_by_linkedin_id[updated.linkedin_id] = updated
+        # Preserve existing stripe_customer_id during update
+        if key not in self._users_stripe_customer_id:
+            self._users_stripe_customer_id[key] = None
+        return updated
+
+    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+        """Update the stripe customer ID for a user."""
+        key = str(user_id)
+        # Initialize if user doesn't exist (shouldn't happen in normal flow)
+        if key not in self._users_by_id:
+            self._users_stripe_customer_id[key] = None
+        self._users_stripe_customer_id[key] = stripe_customer_id
+
     async def purge_older_than(self, cutoff: datetime) -> int:
         # Remove users soft-deleted at or before cutoff
         to_delete: list[str] = []
@@ -149,5 +193,6 @@ class InMemoryUserRepository(UserRepository):
         for key in to_delete:
             user = self._users_by_id.pop(key)
             self._users_by_email.pop(user.email.value, None)
+            self._users_stripe_customer_id.pop(key, None)
 
         return len(to_delete)

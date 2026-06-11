@@ -42,7 +42,9 @@ class SQLAlchemyCandidateProfileRepository(CandidateProfileRepository):
         model.bio = profile.bio
         model.cv_url = profile.cv_url
 
-        await self._session.commit()
+        # Flush to send any new INSERT or UPDATE to the database
+        await self._session.flush([model])
+        # Refresh to get any server-side defaults (like timestamps) that were set by the database
         await self._session.refresh(model)
         return _to_domain(model)
 

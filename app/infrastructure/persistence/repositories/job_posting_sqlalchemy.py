@@ -138,7 +138,7 @@ class JobPostingSQLAlchemyRepository(JobPostingRepository):
             .returning(JobPostingModel)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        # Note: commit is handled at the outer layer (dependency)
         model = result.scalar_one()
         logger.info(
             "JobPosting upserted external_id=%s and source=%s",

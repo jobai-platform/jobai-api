@@ -58,7 +58,7 @@ class BillingPriceSQLAlchemyRepository(BillingPriceRepository):
             .returning(BillingPriceModel)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        # Note: commit is handled at the outer layer (dependency)
         model = result.scalar_one()
         logger.info("BillingPrice upserted: stripe_price_id=%s, plan=%s", price.stripe_price_id, price.plan)
         return _to_domain(model)
@@ -66,7 +66,7 @@ class BillingPriceSQLAlchemyRepository(BillingPriceRepository):
     async def get_active_by_plan(self, plan: Plan) -> Optional[BillingPrice]:
         stmt = select(BillingPriceModel).where(
             BillingPriceModel.plan == plan.value,
-            BillingPriceModel.active.is_(True),
+            BillingPriceModel.active == True,
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()

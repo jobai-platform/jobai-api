@@ -65,6 +65,12 @@ class CandidateService:
                 details="Email already exists.",
             )
 
+        if username is not None and await self.repo.get_by_username(username):
+            raise ConflictError(
+                code="username_already_exists",
+                details="Username already exists.",
+            )
+
         hashed_raw = self.pwd_hasher.hash_password(password) if password else None
         hashed_pw = HashedPassword(hashed_raw) if hashed_raw else None
 

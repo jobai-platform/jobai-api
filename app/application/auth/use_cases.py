@@ -338,12 +338,14 @@ class RegisterUseCase:
         self,
         *,
         email: str,
+        username: str | None = None,
         password: str,
         first_name: str,
         last_name: str,
     ) -> RegisterResult:
         candidate = await self._user_service.register(
             email=email,
+            username=username,
             password=password,
             first_name=first_name,
             last_name=last_name,

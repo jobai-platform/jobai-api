@@ -69,6 +69,13 @@ class SqlAlchemyUserRepository(UserRepository):
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
 
+    async def get_by_username(self, username: str) -> Optional[Candidate]:
+        result = await self.session.execute(
+            select(UserModel).where(UserModel.username == username)
+        )
+        row = result.scalars().one_or_none()
+        return _to_domain(row) if row else None
+
     async def list_all(
         self,
         skip: int = 0,

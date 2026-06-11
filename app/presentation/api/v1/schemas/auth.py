@@ -24,6 +24,7 @@ def _validate_password_policy(value: str) -> str:
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    username: str | None = None
     password: str
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)

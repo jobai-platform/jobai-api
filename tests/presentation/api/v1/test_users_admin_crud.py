@@ -1,6 +1,6 @@
 import uuid
-import pytest
 
+import pytest
 
 # @pytest.mark.asyncio
 # async def test_admin_create_user_returns_401_without_token(client):
@@ -97,6 +97,40 @@ async def test_admin_create_user_returns_409_if_email_exists(client, create_user
     )
     assert response.status_code == 409
     assert response.json()["code"] == "user_already_exists"
+
+
+@pytest.mark.asyncio
+async def test_admin_create_user_returns_409_if_username_exists(
+    client,
+    create_user_in_db,
+    jwt_service,
+):
+    admin_user = await create_user_in_db(
+        email="admin-username@fakemail.com",
+        password="securepassword",
+        role="admin",
+    )
+    await create_user_in_db(
+        email="existing-username@fakemail.com",
+        username="john.doe",
+    )
+    token = jwt_service.create_access_token(
+        subject=str(admin_user.id),
+        extra={"role": admin_user.role, "email": admin_user.email},
+    )
+
+    response = await client.post(
+        "/api/v1/users",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": "new-email@fakemail.com",
+            "username": "john.doe",
+            "password": "securepassword",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "username_already_exists"
 
 
 @pytest.mark.asyncio

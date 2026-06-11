@@ -69,7 +69,9 @@ class SubscriptionSQLAlchemyRepository(SubscriptionRepository):
         model.stripe_customer_id = subscription.stripe_customer_id
         model.stripe_subscription_id = subscription.stripe_subscription_id
         model.billing_price_id = str(subscription.billing_price_id) if subscription.billing_price_id else None
-        await self.session.commit()
+        # Flush to send any new INSERT or UPDATE to the database
+        await self.session.flush([model])
+        # Refresh to get any server-side defaults (like timestamps) that were set by the database
         await self.session.refresh(model)
         logger.info(
             "Subscription updated: user_id=%s, plan=%s, status=%s",

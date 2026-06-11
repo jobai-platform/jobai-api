@@ -1,10 +1,12 @@
-import hashlib
 from datetime import UTC, datetime
+import hashlib
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import select
 
 from app.domain.users.refresh_token import RefreshToken
+from app.infrastructure.persistence.models.user import UserModel
 from app.infrastructure.persistence.repositories.refresh_token_sqlalchemy import (
     SQLAlchemyRefreshTokenRepository,
 )
@@ -226,6 +228,64 @@ async def test_register_returns_201_with_access_token_and_httponly_cookie(client
 
 
 @pytest.mark.asyncio
+async def test_register_with_username_persists_and_returns_it_from_users_me(client, db_session):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {
+            "email": "john.doe@example.com",
+            "username": "john.doe",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user"]["username"] == "john.doe"
+
+    persisted = await db_session.scalar(
+        select(UserModel).where(UserModel.id == UUID(body["user"]["id"]))
+    )
+    assert persisted is not None
+    assert persisted.username == "john.doe"
+
+    me_response = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {body['access_token']}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.json()["username"] == "john.doe"
+
+
+@pytest.mark.asyncio
+async def test_register_without_username_returns_null(client):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {"email": "no-username@example.com"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["user"]["username"] is None
+
+
+@pytest.mark.asyncio
+async def test_register_returns_409_on_duplicate_username(client, create_user_in_db):
+    await create_user_in_db(
+        email="existing-username@example.com",
+        username="john.doe",
+    )
+
+    response = await client.post(
+        "/api/v1/auth/register",
+        json=_VALID_PAYLOAD | {
+            "email": "other@example.com",
+            "username": "john.doe",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "username_already_exists"
+
+
+@pytest.mark.asyncio
 async def test_register_response_body_does_not_contain_refresh_token(client):
     """Le refresh_token NE DOIT PAS apparaître dans le body — cookie uniquement."""
     response = await client.post("/api/v1/auth/register", json=_VALID_PAYLOAD | {"email": "notoken@example.com"})
@@ -359,6 +419,7 @@ async def test_register_returns_422_on_empty_password(client):
 async def test_register_assigns_freemium_subscription(client, db_session):
     """Après inscription, une Subscription plan=FREEMIUM active est créée pour le Candidate."""
     from uuid import UUID
+
     from app.domain.billing.enums import Plan, SubscriptionStatus
     from app.infrastructure.persistence.repositories.subscription_sqlalchemy import (
         SubscriptionSQLAlchemyRepository,

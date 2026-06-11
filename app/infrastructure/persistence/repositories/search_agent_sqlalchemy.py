@@ -34,7 +34,9 @@ class SQLAlchemySearchAgentRepository(SearchAgentRepository):
         model.is_active = agent.is_active
         model.last_run_at = agent.last_run_at
 
-        await self._session.commit()
+        # Flush to send any new INSERT or UPDATE to the database
+        await self._session.flush([model])
+        # Refresh to get any server-side defaults (like timestamps) that were set by the database
         await self._session.refresh(model)
         return _to_domain(model)
 
@@ -68,7 +70,7 @@ class SQLAlchemySearchAgentRepository(SearchAgentRepository):
         model = result.scalar_one_or_none()
         if model:
             await self._session.delete(model)
-            await self._session.commit()
+            # Note: commit is handled at the outer layer (dependency)
 
 
 def _to_domain(model: SearchAgentModel) -> SearchAgent:

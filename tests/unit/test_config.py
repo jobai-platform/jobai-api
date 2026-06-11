@@ -126,6 +126,41 @@ def test_settings_database_url_sync_reads_env(monkeypatch):
     assert config_module.Settings.DATABASE_URL_SYNC == "postgresql://user:pass@host-sync/db"
 
 
+@pytest.mark.parametrize(
+    ("ssl_value", "expected_ssl_value"),
+    [
+        ("true", "require"),
+        ("false", "disable"),
+    ],
+)
+def test_settings_normalizes_boolean_asyncpg_ssl_values(
+    monkeypatch,
+    ssl_value,
+    expected_ssl_value,
+):
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        f"postgresql+asyncpg://user:pass@host/db?ssl={ssl_value}",
+    )
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.DATABASE_URL == (
+        f"postgresql+asyncpg://user:pass@host/db?ssl={expected_ssl_value}"
+    )
+
+
+def test_settings_preserves_valid_asyncpg_ssl_value(monkeypatch):
+    database_url = "postgresql+asyncpg://user:pass@host/db?ssl=require&application_name=jobai"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.DATABASE_URL == database_url
+
+
 def test_settings_embedding_provider_defaults_to_ollama(monkeypatch):
     """GIVEN EMBEDDING_PROVIDER is NOT set in the environment
     WHEN Settings is instantiated

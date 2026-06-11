@@ -69,6 +69,13 @@ class SqlAlchemyUserRepository(UserRepository):
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
 
+    async def get_by_username(self, username: str) -> Optional[Candidate]:
+        result = await self.session.execute(
+            select(UserModel).where(UserModel.username == username)
+        )
+        row = result.scalars().one_or_none()
+        return _to_domain(row) if row else None
+
     async def list_all(
         self,
         skip: int = 0,
@@ -155,10 +162,11 @@ class SqlAlchemyUserRepository(UserRepository):
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,
             "hashed_password": (user.hashed_password.value if user.hashed_password else None) or existing_row.hashed_password,
-            "role": user.role or existing_row.role,
+            "role": (user.role.value if user.role else None) or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
             "linkedin_id": user.linkedin_id if user.linkedin_id is not None else existing_row.linkedin_id,
             "avatar_url": user.avatar_url if user.avatar_url is not None else existing_row.avatar_url,
+            "stripe_customer_id": getattr(user, "stripe_customer_id", None) or existing_row.stripe_customer_id,
         }
 
         await self.session.execute(
@@ -166,7 +174,6 @@ class SqlAlchemyUserRepository(UserRepository):
             .where(UserModel.id == user_id)
             .values(**values)
         )
-        await self.session.commit()
 
         result = await self.session.execute(
             select(UserModel).where(UserModel.id == user_id)
@@ -186,7 +193,7 @@ class SqlAlchemyUserRepository(UserRepository):
         user = result.scalars().first()
         if user:
             await self.session.delete(user)
-            await self.session.commit()
+            # Note: commit is handled at the outer layer (dependency)
 
     async def soft_delete(self, user_id: UUID, deletion: object) -> None:
         """Mark the user as soft-deleted by setting is_deleted/deleted_at/scheduled_purge_at."""
@@ -199,7 +206,7 @@ class SqlAlchemyUserRepository(UserRepository):
             .where(UserModel.id == user_id)
             .values(is_deleted=True, deleted_at=deleted_at, scheduled_purge_at=scheduled)
         )
-        await self.session.commit()
+        # Note: commit is handled at the outer layer (dependency)
 
     async def restore(self, user_id: UUID) -> None:
         await self.session.execute(
@@ -207,7 +214,7 @@ class SqlAlchemyUserRepository(UserRepository):
             .where(UserModel.id == user_id)
             .values(is_deleted=False, deleted_at=None, scheduled_purge_at=None)
         )
-        await self.session.commit()
+        # Note: commit is handled at the outer layer (dependency)
 
     async def purge_older_than(self, cutoff: datetime) -> int:
         """Permanently delete rows that are soft-deleted and older than cutoff; return count."""
@@ -219,9 +226,17 @@ class SqlAlchemyUserRepository(UserRepository):
         for row in rows:
             await self.session.delete(row)
             count += 1
-        if count:
-            await self.session.commit()
+        # Note: commit is handled at the outer layer (dependency)
         return count
+
+    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+        """Update the stripe customer ID for a user."""
+        await self.session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(stripe_customer_id=stripe_customer_id)
+        )
+        # Note: commit is handled at the outer layer (dependency)
 
     async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[Candidate]:
         """Return the user with the given linkedin_id, or None."""

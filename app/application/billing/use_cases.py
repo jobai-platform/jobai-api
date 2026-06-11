@@ -2,9 +2,14 @@ import logging
 from uuid import UUID
 
 from app.application.billing.dto import CheckoutSessionResult
-from app.application.billing.ports import BillingGateway, BillingPriceRepository, SubscriptionRepository
-from app.domain.billing.entities.billing_price import BillingPrice
+from app.application.billing.ports import (
+    BillingGateway,
+    BillingPriceRepository,
+    SubscriptionRepository,
+)
+from app.application.common.ports import TransactionManager
 from app.application.users.ports import UserRepository
+from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.billing.services import map_stripe_subscription_status
@@ -26,11 +31,13 @@ class AssignFreemiumOnSignupUseCase:
         user_repository: UserRepository,
         billing_price_repository: BillingPriceRepository,
         billing_gateway: BillingGateway,
+        transaction_manager: TransactionManager,
     ):
         self.subscription_repository = subscription_repository
         self.user_repository = user_repository
         self.billing_price_repository = billing_price_repository
         self.billing_gateway = billing_gateway
+        self.transaction_manager = transaction_manager
 
     async def execute(self, user_id: UUID) -> Subscription:
         existing = await self.subscription_repository.get_by_user_id(user_id)
@@ -47,10 +54,15 @@ class AssignFreemiumOnSignupUseCase:
             logger.error("Freemium price not found in database. Cannot assign freemium subscription.")
             raise ValueError("Freemium price not found. Please contact support.")
 
+        await self.transaction_manager.commit()
+
         stripe_customer_id = await self.billing_gateway.create_customer(
             email=str(user.email),
             user_id=user.id
         )
+
+        # Update user with Stripe customer ID
+        await self.user_repository.update_stripe_customer_id(user.id, stripe_customer_id)
 
         stripe_subscription_id = await self.billing_gateway.create_subscription(
             customer_id=stripe_customer_id,

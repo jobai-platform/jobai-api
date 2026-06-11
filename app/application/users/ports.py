@@ -31,6 +31,11 @@ class UserRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    async def get_by_username(self, username: str) -> Candidate | None:
+        """Get a user by username."""
+        raise NotImplementedError()
+
+    @abstractmethod
     async def list_all(
         self,
         skip: int | None = 0,
@@ -94,6 +99,15 @@ class UserRepository(ABC):
     @abstractmethod
     async def find_by_linkedin_id(self, linkedin_id: str) -> Candidate | None:
         """Return the user whose linkedin_id matches, or None."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def update_stripe_customer_id(
+        self,
+        user_id: UUID,
+        stripe_customer_id: str | None,
+    ) -> None:
+        """Update the stripe customer ID for a user."""
         raise NotImplementedError()
 
 

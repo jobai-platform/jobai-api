@@ -5,11 +5,10 @@ Layer : application
 """
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Optional
 from uuid import UUID
 
 import pytest
-
-from typing import Optional
 
 from app.application.auth.ports import RefreshTokenRepository, TokenService
 from app.application.auth.use_cases import RegisterResult, RegisterUseCase, TokenPair
@@ -158,6 +157,44 @@ async def test_register_user_has_correct_identity_fields() -> None:
     assert str(result.candidate.email) == "thomas@example.com"
     assert result.candidate.first_name == "Thomas"
     assert result.candidate.last_name == "Dupont"
+
+
+@pytest.mark.asyncio
+async def test_register_persists_optional_username() -> None:
+    use_case, user_repo, *_ = _make_use_case()
+
+    result = await use_case.execute(**_VALID_ARGS, username="john.doe")
+
+    persisted = await user_repo.get_by_id(result.candidate.id)
+    assert result.candidate.username == "john.doe"
+    assert persisted is not None
+    assert persisted.username == "john.doe"
+
+
+@pytest.mark.asyncio
+async def test_register_without_username_persists_none() -> None:
+    use_case, user_repo, *_ = _make_use_case()
+
+    result = await use_case.execute(**_VALID_ARGS)
+
+    persisted = await user_repo.get_by_id(result.candidate.id)
+    assert result.candidate.username is None
+    assert persisted is not None
+    assert persisted.username is None
+
+
+@pytest.mark.asyncio
+async def test_register_raises_conflict_on_duplicate_username() -> None:
+    use_case, *_ = _make_use_case()
+    await use_case.execute(**_VALID_ARGS, username="john.doe")
+
+    with pytest.raises(ConflictError) as exc_info:
+        await use_case.execute(
+            **(_VALID_ARGS | {"email": "other@example.com"}),
+            username="john.doe",
+        )
+
+    assert exc_info.value.code == "username_already_exists"
 
 
 @pytest.mark.asyncio

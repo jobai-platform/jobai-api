@@ -75,6 +75,7 @@ async def register(
 ) -> RegisterResponse:
     result = await use_case.execute(
         email=body.email,
+        username=body.username,
         password=body.password,
         first_name=body.first_name,
         last_name=body.last_name,

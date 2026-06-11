@@ -139,13 +139,21 @@ async def create_user(
     service: UserServiceDep,
     assign_freemium: AssignFreemiumDep,
 ) -> UserRead:
+    # Convert string role to CandidateRole enum
+    from app.domain.users.entities import CandidateRole
+    try:
+        role_enum = CandidateRole(payload.role)
+    except ValueError:
+        # Default to USER role if invalid role provided
+        role_enum = CandidateRole.USER
+
     user = await service.register(
         email=str(payload.email),
         username=payload.username,
         first_name=payload.first_name,
         last_name=payload.last_name,
         password=payload.password,
-        role=payload.role,
+        role=role_enum,
         is_active=payload.is_active,
     )
     await assign_freemium.execute(user.id)

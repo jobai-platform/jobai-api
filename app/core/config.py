@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
@@ -36,12 +37,27 @@ def _parse_app_env(raw_value: str | None) -> str:
   return env
 
 
+def _normalize_asyncpg_database_url(database_url: str) -> str:
+  if not database_url.startswith("postgresql+asyncpg://"):
+    return database_url
+
+  parsed_url = urlsplit(database_url)
+  query_params = parse_qsl(parsed_url.query, keep_blank_values=True)
+  normalized_query_params = [
+      (key, {"true": "require", "false": "disable"}.get(value.lower(), value))
+      if key == "ssl"
+      else (key, value)
+      for key, value in query_params
+  ]
+  return urlunsplit(parsed_url._replace(query=urlencode(normalized_query_params)))
+
+
 def _default_linkedin_redirect_uri() -> str:
   public_api_base_url = os.getenv("PUBLIC_API_BASE_URL", "http://localhost:5001")
   return f"{public_api_base_url.rstrip('/')}/api/v1/auth/linkedin/callback"
 
 
-_FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+_FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
 class Settings:
   APP_ENV: str = _parse_app_env(os.getenv("APP_ENV"))
   SECRET_KEY = os.getenv("SECRET_KEY", "secret")
@@ -57,7 +73,9 @@ class Settings:
   CORS_ALLOW_ORIGIN_REGEX: str | None = _parse_cors_allow_origin_regex(
       os.getenv("CORS_ALLOW_ORIGIN_REGEX"),
   )
-  DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+  DATABASE_URL: str = _normalize_asyncpg_database_url(
+      os.getenv("DATABASE_URL", "sqlite:///./test.db"),
+  )
   DATABASE_URL_SYNC: str = os.getenv("DATABASE_URL_SYNC", DATABASE_URL)
   DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 

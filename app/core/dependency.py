@@ -98,6 +98,7 @@ from app.infrastructure.persistence.repositories.subscription_sqlalchemy import 
     SubscriptionSQLAlchemyRepository,
 )
 from app.infrastructure.persistence.repositories.user_sqlalchemy import SqlAlchemyUserRepository
+from app.infrastructure.persistence.transaction_manager import SQLAlchemyTransactionManager
 from app.infrastructure.security.jwt_service import JWTTokenServiceAdapter
 from app.infrastructure.security.linkedin_oauth_adapter import LinkedInOAuthAdapter
 from app.infrastructure.security.password_service import PasswordServiceAdapter
@@ -243,6 +244,9 @@ def get_billing_price_repository(
 def get_billing_gateway() -> BillingGateway:
     return StripeGateway()
 
+def get_transaction_manager(session: DbSession) -> SQLAlchemyTransactionManager:
+    return SQLAlchemyTransactionManager(session=session)
+
 def get_assign_freemium_on_signup_use_case(
     subscription_repository: Annotated[
         SubscriptionRepository,
@@ -254,12 +258,17 @@ def get_assign_freemium_on_signup_use_case(
         Depends(get_billing_price_repository),
     ],
     billing_gateway: Annotated[BillingGateway, Depends(get_billing_gateway)],
+    transaction_manager: Annotated[
+        SQLAlchemyTransactionManager,
+        Depends(get_transaction_manager),
+    ],
 ) -> AssignFreemiumOnSignupUseCase:
     return AssignFreemiumOnSignupUseCase(
         subscription_repository=subscription_repository,
         user_repository=user_repository,
         billing_price_repository=billing_price_repository,
         billing_gateway=billing_gateway,
+        transaction_manager=transaction_manager,
     )
 
 def get_create_checkout_session_use_case(

@@ -1,14 +1,15 @@
-import pytest
-import uuid
-
 from types import SimpleNamespace
+import uuid
+from uuid import UUID
 
+import pytest
+
+from app.application.billing.dto import CheckoutSessionResult
 from app.application.billing.use_cases import (
     AssignFreemiumOnSignupUseCase,
     CreateCheckoutSessionUseCase,
     HandleStripeWebhookUseCase,
 )
-from app.application.billing.dto import CheckoutSessionResult
 from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
@@ -44,9 +45,15 @@ class FakeSubscriptionRepo:
 class FakeUserRepo:
     def __init__(self, user=None):
         self._user = user
+        self.updated_stripe_customer_id = None
+        self.updated_user_id = None
 
     async def get_by_id(self, user_id):
         return self._user
+
+    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+        self.updated_user_id = user_id
+        self.updated_stripe_customer_id = stripe_customer_id
 
 
 class FakeBillingPriceRepo:
@@ -58,21 +65,36 @@ class FakeBillingPriceRepo:
 
 
 class FakeBillingGateway:
-    def __init__(self, checkout_url="https://checkout.test"):
+    def __init__(self, checkout_url="https://checkout.test", events=None):
         self.checkout_url = checkout_url
         self.created_sessions = []
         self.created_customer_id = "cus_fake"
         self.created_subscription_id = "sub_fake"
+        self.events = events if events is not None else []
+        self.create_customer_calls = 0
 
     async def create_checkout_session(self, *, email, user_id, plan, success_url, cancel_url):
         self.created_sessions.append(dict(email=email, user_id=user_id, plan=plan, success_url=success_url, cancel_url=cancel_url))
         return self.checkout_url
 
     async def create_customer(self, *, email, user_id):
+        self.create_customer_calls += 1
+        self.events.append("create_customer")
         return self.created_customer_id
 
     async def create_subscription(self, *, customer_id, stripe_price_id, user_id, plan):
         return self.created_subscription_id
+
+
+class FakeTransactionManager:
+    def __init__(self, events=None, commit_error=None):
+        self.events = events if events is not None else []
+        self.commit_error = commit_error
+
+    async def commit(self):
+        self.events.append("commit")
+        if self.commit_error is not None:
+            raise self.commit_error
 
 
 def _make_freemium_price() -> BillingPrice:
@@ -92,11 +114,14 @@ async def test_assign_freemium_on_signup_creates_if_not_exists():
     user_id = uuid.uuid4()
     fake_user = SimpleNamespace(id=user_id, email="test@example.com")
     repo = FakeSubscriptionRepo(existing=None)
+    user_repo = FakeUserRepo(user=fake_user)
+    transaction_manager = FakeTransactionManager()
     uc = AssignFreemiumOnSignupUseCase(
         subscription_repository=repo,
-        user_repository=FakeUserRepo(user=fake_user),
+        user_repository=user_repo,
         billing_price_repository=FakeBillingPriceRepo(price=_make_freemium_price()),
         billing_gateway=FakeBillingGateway(),
+        transaction_manager=transaction_manager,
     )
 
     sub = await uc.execute(user_id)
@@ -105,6 +130,45 @@ async def test_assign_freemium_on_signup_creates_if_not_exists():
     assert repo.created is not None
     assert sub.plan == Plan.FREEMIUM
     assert sub.status == SubscriptionStatus.ACTIVE
+    # Verify that the user's stripe_customer_id was updated
+    assert user_repo.updated_user_id == user_id
+    assert user_repo.updated_stripe_customer_id == "cus_fake"
+
+
+@pytest.mark.asyncio
+async def test_assign_freemium_commits_user_before_creating_stripe_customer():
+    user_id = uuid.uuid4()
+    events = []
+    gateway = FakeBillingGateway(events=events)
+    uc = AssignFreemiumOnSignupUseCase(
+        subscription_repository=FakeSubscriptionRepo(),
+        user_repository=FakeUserRepo(user=SimpleNamespace(id=user_id, email="test@example.com")),
+        billing_price_repository=FakeBillingPriceRepo(price=_make_freemium_price()),
+        billing_gateway=gateway,
+        transaction_manager=FakeTransactionManager(events=events),
+    )
+
+    await uc.execute(user_id)
+
+    assert events[:2] == ["commit", "create_customer"]
+
+
+@pytest.mark.asyncio
+async def test_assign_freemium_does_not_create_stripe_customer_when_user_commit_fails():
+    user_id = uuid.uuid4()
+    gateway = FakeBillingGateway()
+    uc = AssignFreemiumOnSignupUseCase(
+        subscription_repository=FakeSubscriptionRepo(),
+        user_repository=FakeUserRepo(user=SimpleNamespace(id=user_id, email="test@example.com")),
+        billing_price_repository=FakeBillingPriceRepo(price=_make_freemium_price()),
+        billing_gateway=gateway,
+        transaction_manager=FakeTransactionManager(commit_error=RuntimeError("database unavailable")),
+    )
+
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        await uc.execute(user_id)
+
+    assert gateway.create_customer_calls == 0
 
 
 @pytest.mark.asyncio
@@ -116,6 +180,7 @@ async def test_assign_freemium_on_signup_returns_existing():
         user_repository=FakeUserRepo(),
         billing_price_repository=FakeBillingPriceRepo(),
         billing_gateway=FakeBillingGateway(),
+        transaction_manager=FakeTransactionManager(),
     )
 
     out = await uc.execute(existing.user_id)

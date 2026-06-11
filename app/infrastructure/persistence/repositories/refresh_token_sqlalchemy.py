@@ -22,7 +22,7 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
                 revoked_at=token.revoked_at,
             )
         )
-        await self._session.commit()
+        # Note: commit is handled at the outer layer (dependency)
 
     async def find_by_token_hash(self, token_hash: str) -> RefreshToken | None:
         result = await self._session.execute(
@@ -38,7 +38,7 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
             .where(RefreshTokenModel.revoked_at.is_(None))
             .values(revoked_at=datetime.now(UTC))
         )
-        await self._session.commit()
+        # Note: commit is handled at the outer layer (dependency)
 
 
 def _to_domain(model: RefreshTokenModel) -> RefreshToken:

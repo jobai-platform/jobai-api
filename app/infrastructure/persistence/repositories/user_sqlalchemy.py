@@ -1,15 +1,15 @@
-from typing import Optional, Sequence
+from collections.abc import Sequence
 from datetime import datetime
-
 from uuid import UUID
-from sqlalchemy import select, update, func
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.users.ports import UserRepository
+from app.domain.common.deletion import DeletionInfo
 from app.domain.users.entities import Candidate, CandidateRole
 from app.domain.users.value_objects import Email, HashedPassword
 from app.infrastructure.persistence.models.user import UserModel
-from app.domain.common.deletion import DeletionInfo
 
 
 def _to_domain(row: UserModel) -> Candidate:
@@ -22,6 +22,7 @@ def _to_domain(row: UserModel) -> Candidate:
     return Candidate(
         id=row.id,
         email=Email.from_raw(row.email),
+        stripe_customer_id=getattr(row, "stripe_customer_id", None),
         username=row.username,
         first_name=row.first_name,
         last_name=row.last_name,
@@ -43,7 +44,7 @@ class SqlAlchemyUserRepository(UserRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: str | Email) -> Optional[Candidate]:
+    async def get_by_email(self, email: str | Email) -> Candidate | None:
         """
         Retrieve user by their email.
         :param email: User email.
@@ -57,7 +58,7 @@ class SqlAlchemyUserRepository(UserRepository):
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
 
-    async def get_by_id(self, user_id: UUID) -> Optional[Candidate]:
+    async def get_by_id(self, user_id: UUID) -> Candidate | None:
         """
         Retrieve user by their ID.
         :param user_id: User ID.
@@ -69,7 +70,7 @@ class SqlAlchemyUserRepository(UserRepository):
         row = result.scalars().one_or_none()
         return _to_domain(row) if row else None
 
-    async def get_by_username(self, username: str) -> Optional[Candidate]:
+    async def get_by_username(self, username: str) -> Candidate | None:
         result = await self.session.execute(
             select(UserModel).where(UserModel.username == username)
         )
@@ -134,7 +135,7 @@ class SqlAlchemyUserRepository(UserRepository):
         await self.session.refresh(new_user)
         return _to_domain(new_user)
 
-    async def update(self, user_id: UUID, user: Candidate) -> Optional[Candidate]:
+    async def update(self, user_id: UUID, user: Candidate) -> Candidate | None:
         """
         Update an existing user.
         :param user_id: User ID.
@@ -161,12 +162,20 @@ class SqlAlchemyUserRepository(UserRepository):
             "username": user.username or existing_row.username,
             "first_name": user.first_name or existing_row.first_name,
             "last_name": user.last_name or existing_row.last_name,
-            "hashed_password": (user.hashed_password.value if user.hashed_password else None) or existing_row.hashed_password,
+            "hashed_password": (
+                user.hashed_password.value if user.hashed_password else None
+            )
+            or existing_row.hashed_password,
             "role": (user.role.value if user.role else None) or existing_row.role,
             "is_active": user.is_active if user.is_active is not None else existing_row.is_active,
-            "linkedin_id": user.linkedin_id if user.linkedin_id is not None else existing_row.linkedin_id,
-            "avatar_url": user.avatar_url if user.avatar_url is not None else existing_row.avatar_url,
-            "stripe_customer_id": getattr(user, "stripe_customer_id", None) or existing_row.stripe_customer_id,
+            "linkedin_id": user.linkedin_id
+            if user.linkedin_id is not None
+            else existing_row.linkedin_id,
+            "avatar_url": (
+                user.avatar_url if user.avatar_url is not None else existing_row.avatar_url
+            ),
+            "stripe_customer_id": getattr(user, "stripe_customer_id", None)
+            or existing_row.stripe_customer_id,
         }
 
         await self.session.execute(
@@ -219,7 +228,7 @@ class SqlAlchemyUserRepository(UserRepository):
     async def purge_older_than(self, cutoff: datetime) -> int:
         """Permanently delete rows that are soft-deleted and older than cutoff; return count."""
         # Use DELETE ... RETURNING to get count when supported
-        stmt = select(UserModel).where(UserModel.is_deleted == True, UserModel.deleted_at <= cutoff)
+        stmt = select(UserModel).where(UserModel.is_deleted, UserModel.deleted_at <= cutoff)
         result = await self.session.execute(stmt)
         rows = result.scalars().all()
         count = 0
@@ -229,7 +238,11 @@ class SqlAlchemyUserRepository(UserRepository):
         # Note: commit is handled at the outer layer (dependency)
         return count
 
-    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+    async def update_stripe_customer_id(
+        self,
+        user_id: UUID,
+        stripe_customer_id: str | None,
+    ) -> None:
         """Update the stripe customer ID for a user."""
         await self.session.execute(
             update(UserModel)
@@ -238,7 +251,7 @@ class SqlAlchemyUserRepository(UserRepository):
         )
         # Note: commit is handled at the outer layer (dependency)
 
-    async def find_by_linkedin_id(self, linkedin_id: str) -> Optional[Candidate]:
+    async def find_by_linkedin_id(self, linkedin_id: str) -> Candidate | None:
         """Return the user with the given linkedin_id, or None."""
         result = await self.session.execute(
             select(UserModel).where(UserModel.linkedin_id == linkedin_id)

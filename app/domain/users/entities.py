@@ -17,6 +17,7 @@ class CandidateRole(str, Enum):
 class Candidate:
     id: UUID
     email: Email
+    stripe_customer_id: str | None = None
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None

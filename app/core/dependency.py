@@ -36,11 +36,13 @@ from app.application.auth.use_cases import (
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
+    InvoiceRepository,
     SubscriptionRepository,
 )
 from app.application.billing.use_cases import (
     AssignFreemiumOnSignupUseCase,
     CreateCheckoutSessionUseCase,
+    GetBillingHistoryUseCase,
     HandleStripeWebhookUseCase,
     SyncStripePricesUseCase,
 )
@@ -65,7 +67,7 @@ from app.application.users.candidate_profile_use_cases import (
 )
 from app.application.users.cv_use_cases import DeleteCVUseCase, UploadCVUseCase
 from app.application.users.ports import UserRepository
-from app.application.users.use_cases import UserService
+from app.application.users.use_cases import CreateCandidateWithFreemiumUseCase, UserService
 from app.core.config import settings
 from app.domain.ai_analysis.ports import EmbeddingPort, LLMGatewayPort
 from app.domain.ai_analysis.services.model_router import ModelRouter
@@ -81,6 +83,9 @@ from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import
 )
 from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy import (
     SQLAlchemyCandidateProfileRepository,
+)
+from app.infrastructure.persistence.repositories.invoice_sqlalchemy import (
+    InvoiceSQLAlchemyRepository,
 )
 from app.infrastructure.persistence.repositories.job_posting_sqlalchemy import (
     JobPostingSQLAlchemyRepository,
@@ -224,22 +229,15 @@ def get_subscription_repository(
     return SubscriptionSQLAlchemyRepository(session=session)
 
 
-def get_register_use_case(
-    user_service: Annotated[UserService, Depends(get_user_service)],
-    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
-    subscription_repo: Annotated[SubscriptionRepository, Depends(get_subscription_repository)],
-) -> RegisterUseCase:
-    return RegisterUseCase(
-        user_service=user_service,
-        token_service=JWTTokenServiceAdapter(),
-        refresh_token_repo=refresh_token_repo,
-        subscription_repo=subscription_repo,
-    )
-
 def get_billing_price_repository(
     session: DbSession,
 ) -> BillingPriceRepository:
     return BillingPriceSQLAlchemyRepository(session=session)
+
+
+def get_invoice_repository(session: DbSession) -> InvoiceRepository:
+    return InvoiceSQLAlchemyRepository(session=session)
+
 
 def get_billing_gateway() -> BillingGateway:
     return StripeGateway()
@@ -271,6 +269,34 @@ def get_assign_freemium_on_signup_use_case(
         transaction_manager=transaction_manager,
     )
 
+
+def get_create_candidate_with_freemium_use_case(
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    freemium: Annotated[
+        AssignFreemiumOnSignupUseCase,
+        Depends(get_assign_freemium_on_signup_use_case),
+    ],
+) -> CreateCandidateWithFreemiumUseCase:
+    return CreateCandidateWithFreemiumUseCase(
+        user_service=user_service,
+        freemium_use_case=freemium,
+    )
+
+
+def get_register_use_case(
+    candidate_provisioner: Annotated[
+        CreateCandidateWithFreemiumUseCase,
+        Depends(get_create_candidate_with_freemium_use_case),
+    ],
+    refresh_token_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_token_repository)],
+) -> RegisterUseCase:
+    return RegisterUseCase(
+        user_service=None,
+        token_service=JWTTokenServiceAdapter(),
+        refresh_token_repo=refresh_token_repo,
+        candidate_provisioner=candidate_provisioner,
+    )
+
 def get_create_checkout_session_use_case(
     user_repository: Annotated[UserRepository, Depends(get_user_repository)],
     billing_gateway: Annotated[BillingGateway, Depends(get_billing_gateway)],
@@ -279,6 +305,17 @@ def get_create_checkout_session_use_case(
         user_repository=user_repository,
         billing_gateway=billing_gateway,
     )
+
+
+def get_billing_history_use_case(
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+    invoice_repository: Annotated[InvoiceRepository, Depends(get_invoice_repository)],
+) -> GetBillingHistoryUseCase:
+    return GetBillingHistoryUseCase(
+        user_repository=user_repository,
+        invoice_repository=invoice_repository,
+    )
+
 
 def get_handle_stripe_webhook_use_case(
     subscription_repository: Annotated[
@@ -529,6 +566,10 @@ def get_get_candidate_job_matches_use_case(
 # Annotated aliases - to be imported in the routes
 # ---------------------------------------------------------------------------
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+CreateCandidateWithFreemiumDep = Annotated[
+    CreateCandidateWithFreemiumUseCase,
+    Depends(get_create_candidate_with_freemium_use_case),
+]
 UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 RefreshTokenUseCaseDep = Annotated[RefreshTokenUseCase, Depends(get_refresh_token_use_case)]
 LogoutUseCaseDep = Annotated[LogoutUseCase, Depends(get_logout_use_case)]
@@ -536,13 +577,13 @@ RegisterUseCaseDep = Annotated[RegisterUseCase, Depends(get_register_use_case)]
 ForgotPasswordUseCaseDep = Annotated[ForgotPasswordUseCase, Depends(get_forgot_password_use_case)]
 ResetPasswordUseCaseDep = Annotated[ResetPasswordUseCase, Depends(get_reset_password_use_case)]
 SubscriptionRepositoryDep = Annotated[SubscriptionRepository, Depends(get_subscription_repository)]
-AssignFreemiumDep = Annotated[
-    AssignFreemiumOnSignupUseCase,
-    Depends(get_assign_freemium_on_signup_use_case),
-]
 CreateCheckoutDep = Annotated[
     CreateCheckoutSessionUseCase,
     Depends(get_create_checkout_session_use_case),
+]
+GetBillingHistoryDep = Annotated[
+    GetBillingHistoryUseCase,
+    Depends(get_billing_history_use_case),
 ]
 HandleWebhookDep = Annotated[
     HandleStripeWebhookUseCase,

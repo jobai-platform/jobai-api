@@ -2,10 +2,11 @@ from datetime import UTC, datetime
 import logging
 from uuid import UUID
 
-from app.application.billing.dto import CheckoutSessionResult
+from app.application.billing.dto import BillingHistoryResult, CheckoutSessionResult
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
+    InvoiceRepository,
     SubscriptionRepository,
 )
 from app.application.common.ports import TransactionManager
@@ -14,6 +15,7 @@ from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.billing.services import map_stripe_subscription_status
+from app.domain.common.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +221,66 @@ class SyncStripePricesUseCase:
             synced_count += 1
 
         return synced_count
+
+
+class GetBillingHistoryUseCase:
+    """
+    Retrieve the authenticated user's Stripe billing history with pagination metadata.
+    """
+
+    def __init__(
+        self,
+        user_repository: UserRepository,
+        invoice_repository: InvoiceRepository,
+    ) -> None:
+        self.user_repository = user_repository
+        self.invoice_repository = invoice_repository
+
+    async def execute(
+        self,
+        user_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> BillingHistoryResult:
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError(code="user_not_found", details=f"User not found: {user_id}")
+
+        if not user.stripe_customer_id:
+            return BillingHistoryResult(
+                items=[],
+                total=0,
+                limit=limit,
+                offset=offset,
+                has_more=False,
+            )
+
+        total = await self.invoice_repository.count_by_stripe_customer_id(user.stripe_customer_id)
+        if total == 0:
+            return BillingHistoryResult(
+                items=[],
+                total=0,
+                limit=limit,
+                offset=offset,
+                has_more=False,
+            )
+
+        items = list(
+            await self.invoice_repository.get_by_stripe_customer_id(
+                user.stripe_customer_id,
+                limit=limit,
+                offset=offset,
+            )
+        )
+        has_more = (offset + len(items)) < total
+
+        return BillingHistoryResult(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=has_more,
+        )
 
 
 class HandleStripeWebhookUseCase:

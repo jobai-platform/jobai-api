@@ -2,19 +2,22 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
 
 from app.core.dependency import (
     BillingGatewayDep,
     CreateCheckoutDep,
+    GetBillingHistoryDep,
     HandleWebhookDep,
     SubscriptionRepositoryDep,
     SyncPricesDep,
 )
 from app.domain.common.exceptions import NotFoundError
 from app.presentation.api.v1.schemas.billing import (
+    BillingHistoryRead,
     CreateCheckoutSessionRequest,
     CreateCheckoutSessionResponse,
+    InvoiceRead,
     StripeWebhookResponse,
     SubscriptionRead,
     SyncStripePricesResponse,
@@ -59,6 +62,35 @@ async def get_my_subscription(
         canceled_at=sub.canceled_at,
         amount=sub.amount,
         currency=sub.currency,
+    )
+
+
+@router.get(
+    "/billing-history",
+    response_model=BillingHistoryRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user billing history",
+    description=(
+        "Retrieve the paginated Stripe billing history for the currently authenticated user."
+    ),
+)
+async def get_billing_history(
+    current_user_id: CurrentUserIdDep,
+    use_case: GetBillingHistoryDep,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    result = await use_case.execute(
+        user_id=current_user_id,
+        limit=limit,
+        offset=offset,
+    )
+    return BillingHistoryRead(
+        items=[InvoiceRead.model_validate(item) for item in result.items],
+        total=result.total,
+        limit=result.limit,
+        offset=result.offset,
+        has_more=result.has_more,
     )
 
 

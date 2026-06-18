@@ -21,6 +21,33 @@ class SyncStripePricesResponse(BaseModel):
     synced_count: int
 
 
+class InvoiceRead(BaseModel):
+    date: datetime | None = None
+    amount: int | None = None
+    currency: str | None = None
+    status: str | None = None
+    stripe_invoice_id: str | None = None
+    stripe_payment_id: str | None = None
+    description: str | None = None
+    hosted_invoice_url: str | None = None
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class BillingHistoryRead(BaseModel):
+    items: list[InvoiceRead]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
 class SubscriptionRead(BaseModel):
     """
     DTO for subscription read - used for the frontend Dashboard

@@ -70,6 +70,15 @@ class BillingPriceRepository(ABC):
         """
         raise NotImplementedError()
 
+    @abstractmethod
+    async def get_active_by_plan(self, plan: Plan) -> BillingPrice | None:
+        """
+        Get active BillingPrice by plan.
+        :param plan: Plan enum value.
+        :return: BillingPrice domain entity or None if not found.
+        """
+        raise NotImplementedError()
+
 
 class BillingProfileRepository(ABC):
     """
@@ -87,15 +96,6 @@ class BillingProfileRepository(ABC):
 
     @abstractmethod
     async def upsert(self, profile: BillingProfile) -> BillingProfile:
-        raise NotImplementedError()
-
-    @abstractmethod
-    async def get_active_by_plan(self, plan: Plan) -> BillingPrice | None:
-        """
-        Get active BillingPrice by plan.
-        :param plan: Plan enum value.
-        :return: BillingPrice domain entity or None if not found.
-        """
         raise NotImplementedError()
 
 

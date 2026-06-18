@@ -2,22 +2,22 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 
 from app.core.dependency import (
     BillingGatewayDep,
     CreateCheckoutDep,
     HandleWebhookDep,
-    SyncPricesDep,
     SubscriptionRepositoryDep,
+    SyncPricesDep,
 )
 from app.domain.common.exceptions import NotFoundError
 from app.presentation.api.v1.schemas.billing import (
     CreateCheckoutSessionRequest,
     CreateCheckoutSessionResponse,
     StripeWebhookResponse,
-    SyncStripePricesResponse,
     SubscriptionRead,
+    SyncStripePricesResponse,
 )
 from app.presentation.security.deps import get_current_user_id
 
@@ -26,12 +26,15 @@ CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
+
 @router.get(
     "/subscriptions/me",
     response_model=SubscriptionRead,
     status_code=status.HTTP_200_OK,
     summary="Get current user subscription details",
-    description="Retrieve the active subscription plan details for the currently authenticated user."
+    description=(
+        "Retrieve the active subscription plan details for the currently authenticated user."
+    ),
 )
 async def get_my_subscription(
     current_user_id: CurrentUserIdDep,
@@ -41,7 +44,7 @@ async def get_my_subscription(
     if not sub:
         raise NotFoundError(
             code="subscription_not_found",
-            details=f"No active subscription found for user {current_user_id}"
+            details=f"No active subscription found for user {current_user_id}",
         )
     return SubscriptionRead(
         user_id=str(sub.user_id),
@@ -50,7 +53,14 @@ async def get_my_subscription(
         stripe_customer_id=sub.stripe_customer_id,
         stripe_subscription_id=sub.stripe_subscription_id,
         billing_price_id=str(sub.billing_price_id) if sub.billing_price_id else None,
+        current_period_start=sub.current_period_start,
+        current_period_end=sub.current_period_end,
+        cancel_at_period_end=sub.cancel_at_period_end,
+        canceled_at=sub.canceled_at,
+        amount=sub.amount,
+        currency=sub.currency,
     )
+
 
 @router.post(
     "/checkout-session",

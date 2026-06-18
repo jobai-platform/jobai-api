@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -21,21 +20,47 @@ def _to_domain(model: SubscriptionModel) -> Subscription:
         stripe_customer_id=model.stripe_customer_id,
         stripe_subscription_id=model.stripe_subscription_id,
         billing_price_id=UUID(str(model.billing_price_id)) if model.billing_price_id else None,
+        current_period_start=model.current_period_start,
+        current_period_end=model.current_period_end,
+        cancel_at_period_end=model.cancel_at_period_end,
+        canceled_at=model.canceled_at,
+        amount=model.amount,
+        currency=model.currency,
     )
+
+
+def _apply_domain_to_model(model: SubscriptionModel, subscription: Subscription) -> None:
+    model.plan = subscription.plan.value
+    model.status = subscription.status.value
+    model.stripe_customer_id = subscription.stripe_customer_id
+    model.stripe_subscription_id = subscription.stripe_subscription_id
+    model.billing_price_id = (
+        str(subscription.billing_price_id) if subscription.billing_price_id else None
+    )
+    model.current_period_start = subscription.current_period_start
+    model.current_period_end = subscription.current_period_end
+    model.cancel_at_period_end = subscription.cancel_at_period_end
+    model.canceled_at = subscription.canceled_at
+    model.amount = subscription.amount
+    model.currency = subscription.currency
 
 
 class SubscriptionSQLAlchemyRepository(SubscriptionRepository):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_by_user_id(self, user_id: UUID) -> Optional[Subscription]:
+    async def get_by_user_id(self, user_id: UUID) -> Subscription | None:
         stmt = select(SubscriptionModel).where(SubscriptionModel.user_id == str(user_id))
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_domain(model) if model else None
 
-    async def get_by_stripe_subscription_id(self, stripe_subscription_id: str) -> Optional[Subscription]:
-        stmt = select(SubscriptionModel).where(SubscriptionModel.stripe_subscription_id == stripe_subscription_id)
+    async def get_by_stripe_subscription_id(
+        self, stripe_subscription_id: str
+    ) -> Subscription | None:
+        stmt = select(SubscriptionModel).where(
+            SubscriptionModel.stripe_subscription_id == stripe_subscription_id
+        )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_domain(model) if model else None
@@ -47,28 +72,35 @@ class SubscriptionSQLAlchemyRepository(SubscriptionRepository):
             status=subscription.status.value,
             stripe_customer_id=subscription.stripe_customer_id,
             stripe_subscription_id=subscription.stripe_subscription_id,
-            billing_price_id=str(subscription.billing_price_id) if subscription.billing_price_id else None,
+            billing_price_id=(
+                str(subscription.billing_price_id) if subscription.billing_price_id else None
+            ),
+            current_period_start=subscription.current_period_start,
+            current_period_end=subscription.current_period_end,
+            cancel_at_period_end=subscription.cancel_at_period_end,
+            canceled_at=subscription.canceled_at,
+            amount=subscription.amount,
+            currency=subscription.currency,
         )
         self.session.add(model)
         await self.session.flush()
         await self.session.refresh(model)
         return _to_domain(model)
 
-    async def update(self, subscription: Subscription) -> Optional[Subscription]:
+    async def update(self, subscription: Subscription) -> Subscription | None:
         stmt = select(SubscriptionModel).where(
             SubscriptionModel.user_id == str(subscription.user_id)
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         if not model:
-            logger.warning("Subscription update failed: not found for user_id=%s", subscription.user_id)
+            logger.warning(
+                "Subscription update failed: not found for user_id=%s",
+                subscription.user_id,
+            )
             return None
 
-        model.plan = subscription.plan.value
-        model.status = subscription.status.value
-        model.stripe_customer_id = subscription.stripe_customer_id
-        model.stripe_subscription_id = subscription.stripe_subscription_id
-        model.billing_price_id = str(subscription.billing_price_id) if subscription.billing_price_id else None
+        _apply_domain_to_model(model, subscription)
         # Flush to send any new INSERT or UPDATE to the database
         await self.session.flush([model])
         # Refresh to get any server-side defaults (like timestamps) that were set by the database

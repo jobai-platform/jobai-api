@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 import logging
 from uuid import UUID
 
@@ -17,14 +18,49 @@ from app.domain.billing.services import map_stripe_subscription_status
 logger = logging.getLogger(__name__)
 
 
+def _stripe_timestamp_to_datetime(value: object) -> datetime | None:
+    if value is None:
+        return None
+
+    try:
+        return datetime.fromtimestamp(int(value), tz=UTC)
+    except (TypeError, ValueError, OSError):
+        logger.debug("Invalid Stripe timestamp ignored: %s", value)
+        return None
+
+
+def _extract_subscription_summary_fields(obj: dict) -> dict[str, object | None]:
+    items = obj.get("items", {}).get("data", [])
+    first_item = items[0] if items else {}
+    price = first_item.get("price", {}) if isinstance(first_item, dict) else {}
+
+    amount = obj.get("amount")
+    if amount is None:
+        amount = price.get("unit_amount")
+
+    currency = obj.get("currency")
+    if currency is None:
+        currency = price.get("currency")
+
+    return {
+        "current_period_start": _stripe_timestamp_to_datetime(obj.get("current_period_start")),
+        "current_period_end": _stripe_timestamp_to_datetime(obj.get("current_period_end")),
+        "cancel_at_period_end": obj.get("cancel_at_period_end"),
+        "canceled_at": _stripe_timestamp_to_datetime(obj.get("canceled_at")),
+        "amount": int(amount) if amount is not None else None,
+        "currency": currency,
+    }
+
+
 class AssignFreemiumOnSignupUseCase:
     """
     Use case for assigning a freemium subscription to a user on signup.
-    If the user already has a subscription (e.g. from a previous signup), it will be returned instead of creating a new one.
+    If the user already has a subscription, it is returned instead of creating a new one.
     - Create Stripe customer
     - Create Stripe Freemium subscription
     - Create local subscription linked to BillingPrice
     """
+
     def __init__(
         self,
         subscription_repository: SubscriptionRepository,
@@ -51,14 +87,15 @@ class AssignFreemiumOnSignupUseCase:
 
         freemium_price = await self.billing_price_repository.get_active_by_plan(Plan.FREEMIUM)
         if not freemium_price:
-            logger.error("Freemium price not found in database. Cannot assign freemium subscription.")
+            logger.error(
+                "Freemium price not found in database. Cannot assign freemium subscription."
+            )
             raise ValueError("Freemium price not found. Please contact support.")
 
         await self.transaction_manager.commit()
 
         stripe_customer_id = await self.billing_gateway.create_customer(
-            email=str(user.email),
-            user_id=user.id
+            email=str(user.email), user_id=user.id
         )
 
         # Update user with Stripe customer ID
@@ -70,7 +107,6 @@ class AssignFreemiumOnSignupUseCase:
             user_id=user.id,
             plan=Plan.FREEMIUM,
         )
-
 
         subscription = Subscription.create_freemium(
             user_id=user.id,
@@ -86,6 +122,7 @@ class CreateCheckoutSessionUseCase:
     """
     Create a checkout session for a user to upgrade to a paid plan.
     """
+
     def __init__(
         self,
         user_repository: UserRepository,
@@ -119,7 +156,7 @@ class CreateCheckoutSessionUseCase:
             logger.error(exc)
             raise ValueError(f"Invalid subscription plan: '{target_plan}.'") from exc
 
-        # Fetch user to get email for Stripe and to verify existence before creating checkout session
+        # Fetch the user email for Stripe and verify the user exists before checkout creation.
         user = await self.user_repository.get_by_id(user_id)
         if not user:
             logger.error("User not found for ID: %s. Cannot create checkout session.", user_id)
@@ -144,6 +181,7 @@ class SyncStripePricesUseCase:
     plan=pro
     plan=enterprise
     """
+
     def __init__(
         self,
         billing_gateway: BillingGateway,
@@ -192,6 +230,7 @@ class HandleStripeWebhookUseCase:
     - customer.subscription.updated   → update_status depuis Stripe
     - customer.subscription.deleted   → CANCELED
     """
+
     def __init__(self, subscription_repository: SubscriptionRepository):
         self.subscription_repository = subscription_repository
 
@@ -216,12 +255,7 @@ class HandleStripeWebhookUseCase:
     # Private handlers
     # -------------------------------------------------------------------------
     async def _handle_checkout_session_completed(self, obj: dict) -> None:
-        """
-        checkout.session.completed: the initial payment has ok.
-        In this event, we assign the paid plan to the user with a PENDING status, waiting for the subscription.created or subscription.updated event from Stripe to update the status to ACTIVE or other.
-        :param obj: Stripe event object (checkout.session.completed).
-        :return: None
-        """
+        """Handle checkout completion and persist the paid subscription summary when available."""
         metadata = obj.get("metadata", {})
         user_id_raw = metadata.get("user_id")
         plan_raw = metadata.get("plan")
@@ -249,6 +283,7 @@ class HandleStripeWebhookUseCase:
                 stripe_customer_id=obj.get("customer"),
                 stripe_subscription_id=obj.get("subscription"),
                 status=SubscriptionStatus.PENDING,
+                **_extract_subscription_summary_fields(obj),
             )
             await self.subscription_repository.create(subscription)
             logger.info("Subscription created for user_id=%s, plan=%s", user_id, plan)
@@ -258,16 +293,13 @@ class HandleStripeWebhookUseCase:
                 stripe_customer_id=obj.get("customer"),
                 stripe_subscription_id=obj.get("subscription"),
                 status=SubscriptionStatus.PENDING,
+                **_extract_subscription_summary_fields(obj),
             )
             await self.subscription_repository.update(subscription)
             logger.info("Subscription updated for user_id=%s, plan=%s", user_id, plan)
 
     async def _handle_subscription_update(self, obj: dict) -> None:
-        """
-        customer.subscription.created or customer.subscription.updated: the subscription status has changed in Stripe, we update it in our database.
-        :param obj: Stripe event object (customer.subscription.created/updated).
-        :return: None
-        """
+        """Handle Stripe subscription changes and persist the latest status and summary fields."""
         stripe_subscription_id = obj.get("id")
         if not stripe_subscription_id:
             return
@@ -276,12 +308,22 @@ class HandleStripeWebhookUseCase:
             stripe_subscription_id
         )
         if not subscription:
-            logger.warning("Subscription update received for unknown subscription: stripe_subscription_id=%s", stripe_subscription_id)
+            logger.warning(
+                "Subscription update received for unknown subscription: stripe_subscription_id=%s",
+                stripe_subscription_id,
+            )
             return
 
         stripe_status = obj.get("status", "incomplete")
         new_status = map_stripe_subscription_status(stripe_status)
         subscription.update_status(new_status)
+        summary_fields = _extract_subscription_summary_fields(obj)
+        subscription.current_period_start = summary_fields["current_period_start"]
+        subscription.current_period_end = summary_fields["current_period_end"]
+        subscription.cancel_at_period_end = summary_fields["cancel_at_period_end"]
+        subscription.canceled_at = summary_fields["canceled_at"]
+        subscription.amount = summary_fields["amount"]
+        subscription.currency = summary_fields["currency"]
         await self.subscription_repository.update(subscription)
         logger.info(
             "Subscription status updated: stripe_subscription_id=%s, new_status=%s",
@@ -290,11 +332,7 @@ class HandleStripeWebhookUseCase:
         )
 
     async def _handle_subscription_deleted(self, obj: dict) -> None:
-        """
-        customer.subscription.deleted: the subscription status has changed in Stripe, we update it in our database.
-        :param obj: Stripe event object (customer.subscription.deleted).
-        :return: None
-        """
+        """Handle Stripe subscription deletion and mark the local subscription canceled."""
         stripe_subscription_id = obj.get("id")
         if not stripe_subscription_id:
             return
@@ -303,9 +341,17 @@ class HandleStripeWebhookUseCase:
             stripe_subscription_id
         )
         if not subscription:
-            logger.warning("Subscription deletion received for unknown subscription: stripe_subscription_id=%s", stripe_subscription_id)
+            logger.warning(
+                "Subscription deletion received for unknown subscription: "
+                "stripe_subscription_id=%s",
+                stripe_subscription_id,
+            )
             return
 
         subscription.update_status(SubscriptionStatus.CANCELED)
         await self.subscription_repository.update(subscription)
-        logger.info("Subscription canceled: stripe_subscription_id=%s, user_id=%s", stripe_subscription_id, subscription.user_id)
+        logger.info(
+            "Subscription canceled: stripe_subscription_id=%s, user_id=%s",
+            stripe_subscription_id,
+            subscription.user_id,
+        )

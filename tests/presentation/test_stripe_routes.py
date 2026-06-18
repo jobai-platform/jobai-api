@@ -1,6 +1,10 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from app.application.billing.dto import CheckoutSessionResult
+from app.domain.billing.enums import Plan, SubscriptionStatus
+from app.infrastructure.persistence.models.subscription import SubscriptionModel
 
 
 class FakeCreateCheckoutUseCase:
@@ -68,3 +72,63 @@ async def test_webhook_route(client):
     assert resp.status_code == 200
     assert fake_uc.handled and fake_uc.handled[0]["type"] == "test.event"
 
+
+@pytest.mark.asyncio
+async def test_get_my_subscription_returns_full_summary(client, create_user_in_db, db_session):
+    user = await create_user_in_db(email="summary@test.com")
+    current_period_start = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
+    current_period_end = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    canceled_at = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
+
+    subscription = SubscriptionModel(
+        user_id=user.id,
+        stripe_customer_id="cus_summary",
+        stripe_subscription_id="sub_summary",
+        plan=Plan.PRO.value,
+        status=SubscriptionStatus.ACTIVE.value,
+        current_period_start=current_period_start,
+        current_period_end=current_period_end,
+        cancel_at_period_end=False,
+        canceled_at=canceled_at,
+        amount=2900,
+        currency="eur",
+    )
+    db_session.add(subscription)
+    await db_session.commit()
+
+    from app import main as app_module
+    from app.presentation.security.deps import get_current_user_id
+
+    app_module.app.dependency_overrides[get_current_user_id] = lambda: user.id
+
+    resp = await client.get("/api/v1/stripe/subscriptions/me")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["user_id"] == str(user.id)
+    assert body["plan"] == Plan.PRO.value
+    assert body["status"] == SubscriptionStatus.ACTIVE.value
+    assert body["stripe_customer_id"] == "cus_summary"
+    assert body["stripe_subscription_id"] == "sub_summary"
+    assert body["current_period_start"] in {"2026-06-01T12:00:00+00:00", "2026-06-01T12:00:00Z"}
+    assert body["current_period_end"] in {"2026-07-01T12:00:00+00:00", "2026-07-01T12:00:00Z"}
+    assert body["cancel_at_period_end"] is False
+    assert body["canceled_at"] in {"2026-06-15T12:00:00+00:00", "2026-06-15T12:00:00Z"}
+    assert body["amount"] == 2900
+    assert body["currency"] == "eur"
+
+
+@pytest.mark.asyncio
+async def test_get_my_subscription_returns_404_when_missing(client, create_user_in_db):
+    user = await create_user_in_db(email="missing@test.com")
+
+    from app import main as app_module
+    from app.presentation.security.deps import get_current_user_id
+
+    app_module.app.dependency_overrides[get_current_user_id] = lambda: user.id
+
+    resp = await client.get("/api/v1/stripe/subscriptions/me")
+
+    assert resp.status_code == 404
+    body = resp.json()
+    assert body["code"] == "subscription_not_found"

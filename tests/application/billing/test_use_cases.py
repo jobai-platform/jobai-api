@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
 import uuid
 from uuid import UUID
@@ -51,7 +52,9 @@ class FakeUserRepo:
     async def get_by_id(self, user_id):
         return self._user
 
-    async def update_stripe_customer_id(self, user_id: UUID, stripe_customer_id: str | None) -> None:
+    async def update_stripe_customer_id(
+        self, user_id: UUID, stripe_customer_id: str | None
+    ) -> None:
         self.updated_user_id = user_id
         self.updated_stripe_customer_id = stripe_customer_id
 
@@ -74,7 +77,15 @@ class FakeBillingGateway:
         self.create_customer_calls = 0
 
     async def create_checkout_session(self, *, email, user_id, plan, success_url, cancel_url):
-        self.created_sessions.append(dict(email=email, user_id=user_id, plan=plan, success_url=success_url, cancel_url=cancel_url))
+        self.created_sessions.append(
+            {
+                "email": email,
+                "user_id": user_id,
+                "plan": plan,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+            }
+        )
         return self.checkout_url
 
     async def create_customer(self, *, email, user_id):
@@ -162,7 +173,9 @@ async def test_assign_freemium_does_not_create_stripe_customer_when_user_commit_
         user_repository=FakeUserRepo(user=SimpleNamespace(id=user_id, email="test@example.com")),
         billing_price_repository=FakeBillingPriceRepo(price=_make_freemium_price()),
         billing_gateway=gateway,
-        transaction_manager=FakeTransactionManager(commit_error=RuntimeError("database unavailable")),
+        transaction_manager=FakeTransactionManager(
+            commit_error=RuntimeError("database unavailable")
+        ),
     )
 
     with pytest.raises(RuntimeError, match="database unavailable"):
@@ -197,22 +210,35 @@ async def test_create_checkout_session_errors_and_success():
     uc = CreateCheckoutSessionUseCase(user_repository=user_repo, billing_gateway=fake_gateway)
 
     with pytest.raises(ValueError):
-        await uc.execute(user_id=fake_user.id, target_plan=Plan.FREEMIUM.value, success_url="a", cancel_url="b")
+        await uc.execute(
+            user_id=fake_user.id, target_plan=Plan.FREEMIUM.value, success_url="a", cancel_url="b"
+        )
 
     # invalid plan
     with pytest.raises(ValueError):
-        await uc.execute(user_id=fake_user.id, target_plan="unknown", success_url="a", cancel_url="b")
+        await uc.execute(
+            user_id=fake_user.id, target_plan="unknown", success_url="a", cancel_url="b"
+        )
 
     # user not found
-    uc_no_user = CreateCheckoutSessionUseCase(user_repository=FakeUserRepo(user=None), billing_gateway=fake_gateway)
+    uc_no_user = CreateCheckoutSessionUseCase(
+        user_repository=FakeUserRepo(user=None), billing_gateway=fake_gateway
+    )
     with pytest.raises(ValueError):
-        await uc_no_user.execute(user_id=uuid.uuid4(), target_plan=Plan.PRO.value, success_url="a", cancel_url="b")
+        await uc_no_user.execute(
+            user_id=uuid.uuid4(), target_plan=Plan.PRO.value, success_url="a", cancel_url="b"
+        )
 
     # success
-    result = await uc.execute(user_id=fake_user.id, target_plan=Plan.PRO.value, success_url="ok", cancel_url="nok")
+    result = await uc.execute(
+        user_id=fake_user.id, target_plan=Plan.PRO.value, success_url="ok", cancel_url="nok"
+    )
     assert isinstance(result, CheckoutSessionResult)
     assert result.checkout_url == fake_gateway.checkout_url
-    assert fake_gateway.created_sessions and fake_gateway.created_sessions[0]["email"] == fake_user.email
+    assert (
+        fake_gateway.created_sessions
+        and fake_gateway.created_sessions[0]["email"] == fake_user.email
+    )
 
 
 @pytest.mark.asyncio
@@ -229,8 +255,13 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
                 "metadata": {"user_id": str(user_id), "plan": Plan.PRO.value},
                 "customer": "cus_123",
                 "subscription": "sub_123",
+                "current_period_start": int(datetime(2026, 6, 1, 12, 0, tzinfo=UTC).timestamp()),
+                "current_period_end": int(datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()),
+                "cancel_at_period_end": False,
+                "amount": 2900,
+                "currency": "eur",
             }
-        }
+        },
     }
 
     await uc.execute(event)
@@ -239,6 +270,11 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
     assert repo.created.status == SubscriptionStatus.PENDING
     assert repo.created.stripe_customer_id == "cus_123"
     assert repo.created.stripe_subscription_id == "sub_123"
+    assert repo.created.current_period_start == datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
+    assert repo.created.current_period_end == datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    assert repo.created.cancel_at_period_end is False
+    assert repo.created.amount == 2900
+    assert repo.created.currency == "eur"
 
     # case 2: existing subscription -> update
     existing = Subscription.create_freemium(user_id=user_id)
@@ -252,8 +288,10 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
                 "metadata": {"user_id": str(user_id), "plan": Plan.ENTERPRISE.value},
                 "customer": "cus_999",
                 "subscription": "sub_999",
+                "amount": 5900,
+                "currency": "chf",
             }
-        }
+        },
     }
 
     await uc2.execute(event2)
@@ -262,22 +300,103 @@ async def test_handle_stripe_webhook_checkout_session_completed_creates_and_upda
     assert repo2.updated.status == SubscriptionStatus.PENDING
     assert repo2.updated.stripe_customer_id == "cus_999"
     assert repo2.updated.stripe_subscription_id == "sub_999"
+    assert repo2.updated.amount == 5900
+    assert repo2.updated.currency == "chf"
 
 
 @pytest.mark.asyncio
 async def test_handle_subscription_deleted_marks_canceled():
     user_id = uuid.uuid4()
     sub = Subscription.create_freemium(user_id=user_id)
-    sub.assign_paid_plan(plan=Plan.PRO, stripe_customer_id="c", stripe_subscription_id="sub_del", status=SubscriptionStatus.ACTIVE)
+    sub.assign_paid_plan(
+        plan=Plan.PRO,
+        stripe_customer_id="c",
+        stripe_subscription_id="sub_del",
+        status=SubscriptionStatus.ACTIVE,
+    )
 
     repo = FakeSubscriptionRepo(existing=sub)
     uc = HandleStripeWebhookUseCase(subscription_repository=repo)
 
-    event = {
-        "type": "customer.subscription.deleted",
-        "data": {"object": {"id": "sub_del"}}
-    }
+    event = {"type": "customer.subscription.deleted", "data": {"object": {"id": "sub_del"}}}
 
     await uc.execute(event)
     assert repo.updated is not None
     assert repo.updated.status == SubscriptionStatus.CANCELED
+
+
+@pytest.mark.asyncio
+async def test_handle_subscription_update_persists_stripe_summary_fields():
+    user_id = uuid.uuid4()
+    existing = Subscription.create_freemium(user_id=user_id)
+    existing.assign_paid_plan(
+        plan=Plan.PRO,
+        stripe_customer_id="cus_321",
+        stripe_subscription_id="sub_321",
+        status=SubscriptionStatus.PENDING,
+    )
+    repo = FakeSubscriptionRepo(existing=existing)
+    uc = HandleStripeWebhookUseCase(subscription_repository=repo)
+
+    event = {
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "id": "sub_321",
+                "status": "past_due",
+                "current_period_start": int(datetime(2026, 6, 1, 12, 0, tzinfo=UTC).timestamp()),
+                "current_period_end": int(datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()),
+                "cancel_at_period_end": True,
+                "canceled_at": int(datetime(2026, 6, 15, 12, 0, tzinfo=UTC).timestamp()),
+                "items": {
+                    "data": [
+                        {
+                            "price": {
+                                "unit_amount": 4900,
+                                "currency": "chf",
+                            }
+                        }
+                    ]
+                },
+            }
+        },
+    }
+
+    await uc.execute(event)
+
+    assert repo.updated is not None
+    assert repo.updated.status == SubscriptionStatus.PAST_DUE
+    assert repo.updated.current_period_start == datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
+    assert repo.updated.current_period_end == datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    assert repo.updated.cancel_at_period_end is True
+    assert repo.updated.canceled_at == datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
+    assert repo.updated.amount == 4900
+    assert repo.updated.currency == "chf"
+
+
+@pytest.mark.asyncio
+async def test_handle_checkout_session_completed_keeps_optional_fields_when_missing():
+    user_id = uuid.uuid4()
+    repo = FakeSubscriptionRepo(existing=None)
+    uc = HandleStripeWebhookUseCase(subscription_repository=repo)
+
+    event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "metadata": {"user_id": str(user_id), "plan": Plan.PRO.value},
+                "customer": "cus_missing",
+                "subscription": "sub_missing",
+            }
+        },
+    }
+
+    await uc.execute(event)
+
+    assert repo.created is not None
+    assert repo.created.current_period_start is None
+    assert repo.created.current_period_end is None
+    assert repo.created.cancel_at_period_end is None
+    assert repo.created.canceled_at is None
+    assert repo.created.amount is None
+    assert repo.created.currency is None

@@ -207,6 +207,7 @@ class CreateCandidateWithFreemiumUseCase:
     """
     Create a Candidate and assign the freemium subscription.
     """
+
     def __init__(
         self,
         user_service: CandidateService,

@@ -20,7 +20,13 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "invoices",
-        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), primary_key=True, nullable=False),
+        sa.Column(
+            "id",
+            sa.UUID(),
+            server_default=sa.text("gen_random_uuid()"),
+            primary_key=True,
+            nullable=False,
+        ),
         sa.Column(
             "user_id",
             sa.UUID(),

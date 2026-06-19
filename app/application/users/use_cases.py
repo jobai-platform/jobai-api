@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
 from app.application.users.candidate_profile_ports import CandidateProfileRepository
 from app.application.users.ports import PasswordHasher, UserRepository
 from app.domain.common.exceptions import BadRequestError, ConflictError, NotFoundError
@@ -200,6 +201,43 @@ class CandidateService:
         """
         deleted_count = await self.repo.purge_older_than(cutoff)
         return deleted_count
+
+
+class CreateCandidateWithFreemiumUseCase:
+    """
+    Create a Candidate and assign the freemium subscription.
+    """
+
+    def __init__(
+        self,
+        user_service: CandidateService,
+        freemium_use_case: AssignFreemiumOnSignupUseCase,
+    ) -> None:
+        self._user_service = user_service
+        self._freemium_use_case = freemium_use_case
+
+    async def execute(
+        self,
+        *,
+        email: str | Email,
+        password: str | None,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        role: CandidateRole = CandidateRole.USER,
+        is_active: bool | None = True,
+    ) -> Candidate:
+        candidate = await self._user_service.register(
+            email=email,
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            is_active=is_active,
+        )
+        await self._freemium_use_case.execute(candidate.id)
+        return candidate
 
 
 UserService = CandidateService

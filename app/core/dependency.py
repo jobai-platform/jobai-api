@@ -591,6 +591,10 @@ HandleWebhookDep = Annotated[
 ]
 SyncPricesDep = Annotated[SyncStripePricesUseCase, Depends(get_sync_stripe_prices_use_case)]
 BillingGatewayDep = Annotated[BillingGateway, Depends(get_billing_gateway)]
+AssignFreemiumDep = Annotated[
+    AssignFreemiumOnSignupUseCase,
+    Depends(get_assign_freemium_on_signup_use_case),
+]
 SearchJobsDep = Annotated[SearchJobsUseCase, Depends(get_search_jobs_use_case)]
 CreateSearchAgentDep = Annotated[
     CreateSearchAgentUseCase,

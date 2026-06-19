@@ -13,7 +13,10 @@ from app.application.auth.ports import (
 )
 from app.application.billing.ports import SubscriptionRepository
 from app.application.users.ports import PasswordHasher, UserRepository
-from app.application.users.use_cases import CandidateService
+from app.application.users.use_cases import (
+    CandidateService,
+    CreateCandidateWithFreemiumUseCase,
+)
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.common.exceptions import UnauthorizedError
 from app.domain.users.entities import Candidate
@@ -324,15 +327,17 @@ class RegisterResult:
 class RegisterUseCase:
     def __init__(
         self,
-        user_service: CandidateService,
+        user_service: CandidateService | None,
         token_service: TokenService,
         refresh_token_repo: RefreshTokenRepository,
-        subscription_repo: SubscriptionRepository,
+        subscription_repo: SubscriptionRepository | None = None,
+        candidate_provisioner: CreateCandidateWithFreemiumUseCase | None = None,
     ) -> None:
         self._user_service = user_service
         self._token_service = token_service
         self._refresh_token_repo = refresh_token_repo
         self._subscription_repo = subscription_repo
+        self._candidate_provisioner = candidate_provisioner
 
     async def execute(
         self,
@@ -343,14 +348,28 @@ class RegisterUseCase:
         first_name: str,
         last_name: str,
     ) -> RegisterResult:
-        candidate = await self._user_service.register(
-            email=email,
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-        )
-        await self._subscription_repo.create(Subscription.create_freemium(user_id=candidate.id))
+        if self._candidate_provisioner is not None:
+            candidate = await self._candidate_provisioner.execute(
+                email=email,
+                username=username,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+        else:
+            if self._user_service is None or self._subscription_repo is None:
+                raise RuntimeError(
+                    "RegisterUseCase requires a candidate provisioner or legacy repositories"
+                )
+
+            candidate = await self._user_service.register(
+                email=email,
+                username=username,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            await self._subscription_repo.create(Subscription.create_freemium(user_id=candidate.id))
         tokens = self._issue_tokens(candidate)
         await self._persist_refresh_token(candidate.id, tokens.refresh_token)
         return RegisterResult(candidate=candidate, tokens=tokens)

@@ -2,10 +2,15 @@ from datetime import UTC, datetime
 import logging
 from uuid import UUID
 
-from app.application.billing.dto import BillingHistoryResult, CheckoutSessionResult
+from app.application.billing.dto import (
+    BillingAccountOverviewResult,
+    BillingHistoryResult,
+    CheckoutSessionResult,
+)
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
+    BillingProfileRepository,
     InvoiceRepository,
     SubscriptionRepository,
 )
@@ -280,6 +285,88 @@ class GetBillingHistoryUseCase:
             limit=limit,
             offset=offset,
             has_more=has_more,
+        )
+
+
+class GetBillingAccountOverviewUseCase:
+    """
+    Retrieve the billing area read model for the authenticated user.
+    """
+
+    def __init__(
+        self,
+        user_repository: UserRepository,
+        subscription_repository: SubscriptionRepository,
+        billing_profile_repository: BillingProfileRepository,
+        invoice_repository: InvoiceRepository,
+    ) -> None:
+        self.user_repository = user_repository
+        self.subscription_repository = subscription_repository
+        self.billing_profile_repository = billing_profile_repository
+        self.invoice_repository = invoice_repository
+
+    async def execute(
+        self,
+        user_id: UUID,
+        history_limit: int = 3,
+        history_offset: int = 0,
+    ) -> BillingAccountOverviewResult:
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError(code="user_not_found", details=f"User not found: {user_id}")
+
+        subscription = await self.subscription_repository.get_by_user_id(user_id)
+        if not subscription:
+            raise NotFoundError(
+                code="subscription_not_found",
+                details=f"Subscription not found for user: {user_id}",
+            )
+
+        billing_profile = await self.billing_profile_repository.get_by_user_id(user_id)
+
+        if not user.stripe_customer_id:
+            billing_history = BillingHistoryResult(
+                items=[],
+                total=0,
+                limit=history_limit,
+                offset=history_offset,
+                has_more=False,
+            )
+            return BillingAccountOverviewResult(
+                subscription=subscription,
+                billing_profile=billing_profile,
+                billing_history=billing_history,
+            )
+
+        total = await self.invoice_repository.count_by_stripe_customer_id(user.stripe_customer_id)
+        if total == 0:
+            billing_history = BillingHistoryResult(
+                items=[],
+                total=0,
+                limit=history_limit,
+                offset=history_offset,
+                has_more=False,
+            )
+        else:
+            items = list(
+                await self.invoice_repository.get_by_stripe_customer_id(
+                    user.stripe_customer_id,
+                    limit=history_limit,
+                    offset=history_offset,
+                )
+            )
+            billing_history = BillingHistoryResult(
+                items=items,
+                total=total,
+                limit=history_limit,
+                offset=history_offset,
+                has_more=(history_offset + len(items)) < total,
+            )
+
+        return BillingAccountOverviewResult(
+            subscription=subscription,
+            billing_profile=billing_profile,
+            billing_history=billing_history,
         )
 
 

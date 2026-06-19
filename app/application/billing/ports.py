@@ -99,6 +99,25 @@ class BillingProfileRepository(ABC):
         raise NotImplementedError()
 
 
+class BillingProfileRepository(ABC):
+    """
+    Abstract base class that represents a billing profile repository.
+    Billing profiles keep the local billing contact and masked payment snapshot.
+    """
+
+    @abstractmethod
+    async def get_by_user_id(self, user_id: UUID) -> BillingProfile | None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def get_by_stripe_customer_id(self, stripe_customer_id: str) -> BillingProfile | None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def upsert(self, profile: BillingProfile) -> BillingProfile:
+        raise NotImplementedError()
+
+
 class BillingGateway(ABC):
     """
     Port for external billing provides, currently Stripe.

@@ -15,7 +15,7 @@ from app.domain.ai_analysis.entities import AIAnalysis
 from app.domain.ai_analysis.enums import AnalysisQualityTier, AnalysisStatus
 from app.domain.ai_analysis.ports import EmbeddingPort
 from app.domain.ai_analysis.services.model_router import ModelRouter
-from app.domain.common.exceptions import NotFoundError
+from app.domain.common.exceptions import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,10 @@ class GenerateEmbeddingsUseCase:
 
     async def execute(self, text: str) -> list[float]:
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            raise BadRequestError(
+                code="empty_embedding_input",
+                details="Text cannot be empty",
+            )
         port = self._router.get_embedding_port()
         return await port.generate_embedding(text)
 
@@ -64,7 +67,10 @@ class AnalyzeJobDescriptionUseCase:
         Falls back to {"raw_analysis": <text>} if the LLM does not return valid JSON.
         """
         if not job_description or not job_description.strip():
-            raise ValueError("job_description cannot be empty")
+            raise BadRequestError(
+                code="empty_job_description",
+                details="job_description cannot be empty",
+            )
 
         llm_port = self._router.get_llm_port()
 
@@ -250,7 +256,10 @@ class IndexJobPostingUseCase:
 
     async def execute(self, command: IndexJobPostingCommand) -> None:
         if not command.description or not command.description.strip():
-            raise ValueError("description cannot be empty")
+            raise BadRequestError(
+                code="empty_job_description",
+                details="description cannot be empty",
+            )
         vector = await self._embedding.generate_embedding(command.description)
         await self._vector_store.upsert_job(command.job_posting_id, vector, command.metadata)
 

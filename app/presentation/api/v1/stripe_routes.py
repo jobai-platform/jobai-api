@@ -8,16 +8,20 @@ from app.core.dependency import (
     BillingGatewayDep,
     CreateCheckoutDep,
     GetBillingHistoryDep,
+    GetBillingProfileDep,
     HandleWebhookDep,
     SubscriptionRepositoryDep,
     SyncPricesDep,
 )
 from app.domain.common.exceptions import NotFoundError
 from app.presentation.api.v1.schemas.billing import (
+    BillingAddressRead,
     BillingHistoryRead,
+    BillingProfileRead,
     CreateCheckoutSessionRequest,
     CreateCheckoutSessionResponse,
     InvoiceRead,
+    PaymentMethodSnapshotRead,
     StripeWebhookResponse,
     SubscriptionRead,
     SyncStripePricesResponse,
@@ -28,6 +32,31 @@ CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
+
+
+def _billing_profile_to_read(user_id: UUID, profile) -> BillingProfileRead:
+    billing_address = (
+        BillingAddressRead.model_validate(profile.billing_address)
+        if profile.billing_address
+        else None
+    )
+    payment_method_snapshot = (
+        PaymentMethodSnapshotRead.model_validate(profile.payment_method_snapshot)
+        if profile.payment_method_snapshot
+        else None
+    )
+    return BillingProfileRead(
+        user_id=str(user_id),
+        stripe_customer_id=profile.stripe_customer_id,
+        contact_first_name=profile.contact_first_name,
+        contact_last_name=profile.contact_last_name,
+        contact_email=profile.contact_email,
+        contact_full_name=profile.contact_full_name,
+        billing_address=billing_address,
+        payment_method_snapshot=payment_method_snapshot,
+        created_at=profile.created_at,
+        updated_at=profile.updated_at,
+    )
 
 
 @router.get(
@@ -94,6 +123,26 @@ async def get_billing_history(
     )
 
 
+@router.get(
+    "/billing-profile",
+    response_model=BillingProfileRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user billing profile",
+    description=(
+        "Retrieve the billing contact details and masked payment method snapshot for the "
+        "currently authenticated user."
+    ),
+)
+async def get_billing_profile(
+    current_user_id: CurrentUserIdDep,
+    use_case: GetBillingProfileDep,
+):
+    profile = await use_case.execute(user_id=current_user_id)
+    if not profile:
+        return BillingProfileRead(user_id=str(current_user_id))
+    return _billing_profile_to_read(current_user_id, profile)
+
+
 @router.post(
     "/checkout-session",
     status_code=status.HTTP_202_ACCEPTED,
@@ -104,31 +153,13 @@ async def create_checkout_session(
     current_user_id: CurrentUserIdDep,
     use_case: CreateCheckoutDep,
 ):
-    try:
-        result = await use_case.execute(
-            user_id=current_user_id,
-            target_plan=payload.plan,
-            success_url=str(payload.success_url),
-            cancel_url=str(payload.cancel_url),
-        )
-        return CreateCheckoutSessionResponse(checkout_url=result.checkout_url)
-
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
-
-    except RuntimeError as exc:
-        logger.error(
-            "Error creating checkout session for user %s: %s",
-            current_user_id,
-            exc,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Error communicating with billing gateway.",
-        ) from exc
+    result = await use_case.execute(
+        user_id=current_user_id,
+        target_plan=payload.plan,
+        success_url=str(payload.success_url),
+        cancel_url=str(payload.cancel_url),
+    )
+    return CreateCheckoutSessionResponse(checkout_url=result.checkout_url)
 
 
 @router.post(

@@ -17,10 +17,11 @@ from app.application.billing.ports import (
 from app.application.common.ports import TransactionManager
 from app.application.users.ports import UserRepository
 from app.domain.billing.entities.billing_price import BillingPrice
+from app.domain.billing.entities.billing_profile import BillingProfile
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
 from app.domain.billing.services import map_stripe_subscription_status
-from app.domain.common.exceptions import NotFoundError
+from app.domain.common.exceptions import BadRequestError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +91,20 @@ class AssignFreemiumOnSignupUseCase:
         user = await self.user_repository.get_by_id(user_id)
         if not user:
             logger.error("User not found for ID: %s. Cannot assign freemium subscription.", user_id)
-            raise ValueError("User not found. Cannot assign freemium subscription.")
+            raise NotFoundError(
+                code="user_not_found",
+                details=f"User not found: {user_id}",
+            )
 
         freemium_price = await self.billing_price_repository.get_active_by_plan(Plan.FREEMIUM)
         if not freemium_price:
             logger.error(
                 "Freemium price not found in database. Cannot assign freemium subscription."
             )
-            raise ValueError("Freemium price not found. Please contact support.")
+            raise NotFoundError(
+                code="freemium_price_not_found",
+                details="Freemium price not configured. Please contact support.",
+            )
 
         await self.transaction_manager.commit()
 
@@ -155,19 +162,28 @@ class CreateCheckoutSessionUseCase:
         """
         if target_plan == Plan.FREEMIUM.value:
             logger.info("Target plan is freemium. Cannot create checkout session.")
-            raise ValueError("Cannot create checkout session for freemium plan.")
+            raise BadRequestError(
+                code="freemium_checkout_forbidden",
+                details="Cannot create checkout session for freemium plan.",
+            )
 
         try:
             plan = Plan(target_plan)
         except ValueError as exc:
             logger.error(exc)
-            raise ValueError(f"Invalid subscription plan: '{target_plan}.'") from exc
+            raise BadRequestError(
+                code="invalid_subscription_plan",
+                details=f"Invalid subscription plan: '{target_plan}.'",
+            ) from exc
 
         # Fetch the user email for Stripe and verify the user exists before checkout creation.
         user = await self.user_repository.get_by_id(user_id)
         if not user:
             logger.error("User not found for ID: %s. Cannot create checkout session.", user_id)
-            raise ValueError("User not found.")
+            raise NotFoundError(
+                code="user_not_found",
+                details=f"User not found: {user_id}",
+            )
 
         checkout_url = await self.billing_gateway.create_checkout_session(
             email=str(user.email),
@@ -286,6 +302,18 @@ class GetBillingHistoryUseCase:
             offset=offset,
             has_more=has_more,
         )
+
+
+class GetBillingProfileUseCase:
+    """
+    Retrieve the authenticated user's billing profile snapshot.
+    """
+
+    def __init__(self, billing_profile_repository: BillingProfileRepository) -> None:
+        self.billing_profile_repository = billing_profile_repository
+
+    async def execute(self, user_id: UUID) -> BillingProfile | None:
+        return await self.billing_profile_repository.get_by_user_id(user_id)
 
 
 class GetBillingAccountOverviewUseCase:

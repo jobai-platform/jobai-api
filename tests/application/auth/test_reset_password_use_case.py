@@ -8,6 +8,7 @@ from app.application.users.ports import PasswordHasher
 from app.domain.users.entities import Candidate
 from app.domain.users.password_reset_token import PasswordResetToken
 from app.domain.users.value_objects import Email, HashedPassword
+from app.domain.common.exceptions import UnauthorizedError
 from tests.fakes.auth.in_memory_password_reset_token_repo import (
     InMemoryPasswordResetTokenRepository,
 )
@@ -92,7 +93,7 @@ async def test_reset_password_hashes_and_persists_new_password_and_consumes_toke
 async def test_reset_password_rejects_expired_token_without_changing_password() -> None:
     use_case, user_repo, _, password_hasher, candidate, token = await _make_use_case()
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=token.signed_value,
             new_password="NewSecurePass1!",
@@ -114,7 +115,7 @@ async def test_reset_password_rejects_second_use() -> None:
         now=CREATED_AT + timedelta(minutes=5),
     )
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=token.signed_value,
             new_password="SecondSecurePass1!",
@@ -127,7 +128,7 @@ async def test_reset_password_rejects_tampered_token() -> None:
     use_case, _, _, password_hasher, _, token = await _make_use_case()
     tampered = f"tampered-{token.value}.{token.signature}"
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=tampered,
             new_password="NewSecurePass1!",
@@ -147,7 +148,7 @@ async def test_reset_password_rejects_invalid_signature_for_persisted_token_hash
         created_at=token.created_at,
     )
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=invalid_signature_token,
             new_password="NewSecurePass1!",
@@ -162,7 +163,7 @@ async def test_reset_password_rejects_unknown_token() -> None:
     use_case, _, _, password_hasher, _, _ = await _make_use_case()
     unknown = PasswordResetToken.generate(signing_key=SIGNING_KEY, now=CREATED_AT)
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=unknown.signed_value,
             new_password="NewSecurePass1!",
@@ -177,7 +178,7 @@ async def test_reset_password_rejects_failed_concurrent_claim_without_changing_p
     use_case, user_repo, token_repo, password_hasher, candidate, token = await _make_use_case()
     token_repo.allow_consume = False
 
-    with pytest.raises(ValueError, match="Invalid or expired password reset token"):
+    with pytest.raises(UnauthorizedError, match="Invalid or expired password reset token"):
         await use_case.execute(
             signed_token=token.signed_value,
             new_password="NewSecurePass1!",

@@ -4,6 +4,7 @@ import pytest
 
 from app.application.billing.dto import CheckoutSessionResult
 from app.domain.billing.enums import Plan, SubscriptionStatus
+from app.infrastructure.persistence.models.billing_profile import BillingProfileModel
 from app.infrastructure.persistence.models.subscription import SubscriptionModel
 
 
@@ -29,6 +30,46 @@ class FakeHandleWebhookUseCase:
 
     async def execute(self, event):
         self.handled.append(event)
+
+
+@pytest.mark.asyncio
+async def test_get_billing_profile_returns_snapshot(client, create_user_in_db, db_session):
+    user = await create_user_in_db(email="billing-profile@test.com", password=None, stripe_customer_id="cus_bp")
+    db_session.add(
+        BillingProfileModel(
+            user_id=user.id,
+            stripe_customer_id="cus_bp",
+            contact_first_name="Ada",
+            contact_last_name="Lovelace",
+            contact_email="ada@example.com",
+            payment_method_id="pm_123",
+            payment_method_brand="visa",
+            payment_method_last4="4242",
+            payment_method_exp_month=12,
+            payment_method_exp_year=2027,
+            payment_method_holder_name="Ada Lovelace",
+            payment_method_country="GB",
+            payment_method_funding="credit",
+            payment_method_wallet="apple_pay",
+        )
+    )
+    await db_session.commit()
+
+    from app import main as app_module
+    from app.presentation.security.deps import get_current_user_id
+
+    app_module.app.dependency_overrides[get_current_user_id] = lambda: user.id
+
+    response = await client.get("/api/v1/stripe/billing-profile")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["user_id"] == str(user.id)
+    assert body["stripe_customer_id"] == "cus_bp"
+    assert body["contact_full_name"] == "Ada Lovelace"
+    assert body["payment_method_snapshot"]["brand"] == "visa"
+    assert body["payment_method_snapshot"]["last4"] == "4242"
+    assert body["payment_method_snapshot"]["masked_display"] == "visa •••• 4242"
 
 
 @pytest.mark.asyncio

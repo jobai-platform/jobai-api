@@ -188,6 +188,23 @@ def test_settings_cors_allow_origins_defaults_to_frontend_origin(monkeypatch):
     assert config_module.Settings.CORS_ALLOW_ORIGINS == ["https://app.jobai.test"]
 
 
+def test_settings_cors_allow_origins_adds_localhost_alias_for_local_dev(monkeypatch):
+    """GIVEN the default frontend origin is localhost
+    WHEN Settings is instantiated
+    THEN the CORS allowlist also accepts the 127.0.0.1 alias used by some browsers
+    """
+    monkeypatch.delenv("CORS_ALLOW_ORIGINS", raising=False)
+    monkeypatch.delenv("FRONTEND_ORIGIN", raising=False)
+
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    assert config_module.Settings.CORS_ALLOW_ORIGINS == [
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
+
+
 def test_settings_cors_allow_origin_regex_defaults_to_none(monkeypatch):
     monkeypatch.delenv("CORS_ALLOW_ORIGIN_REGEX", raising=False)
 

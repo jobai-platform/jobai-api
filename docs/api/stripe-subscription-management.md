@@ -14,6 +14,12 @@ This document summarizes the billing area exposed by Sovrum for connected users.
 - Returns the connected user's invoice history.
 - Uses a paginated envelope with `items`, `total`, `limit`, `offset`, and `has_more`.
 
+`GET /api/v1/stripe/billing-profile`
+
+- Returns the connected user's billing contact data.
+- Includes the masked payment method snapshot when present.
+- Returns empty-state fields when the user has no stored billing profile yet.
+
 ## Planned endpoints
 
 `GET /api/v1/stripe/billing-profile`

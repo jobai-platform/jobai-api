@@ -36,6 +36,7 @@ from app.application.auth.use_cases import (
 from app.application.billing.ports import (
     BillingGateway,
     BillingPriceRepository,
+    BillingProfileRepository,
     InvoiceRepository,
     SubscriptionRepository,
 )
@@ -43,6 +44,7 @@ from app.application.billing.use_cases import (
     AssignFreemiumOnSignupUseCase,
     CreateCheckoutSessionUseCase,
     GetBillingHistoryUseCase,
+    GetBillingProfileUseCase,
     HandleStripeWebhookUseCase,
     SyncStripePricesUseCase,
 )
@@ -80,6 +82,9 @@ from app.infrastructure.persistence.repositories.ai_analysis_sqlalchemy import (
 )
 from app.infrastructure.persistence.repositories.billing_price_sqlalchemy import (
     BillingPriceSQLAlchemyRepository,
+)
+from app.infrastructure.persistence.repositories.billing_profile_sqlalchemy import (
+    BillingProfileSQLAlchemyRepository,
 )
 from app.infrastructure.persistence.repositories.candidate_profile_sqlalchemy import (
     SQLAlchemyCandidateProfileRepository,
@@ -235,6 +240,12 @@ def get_billing_price_repository(
     return BillingPriceSQLAlchemyRepository(session=session)
 
 
+def get_billing_profile_repository(
+    session: DbSession,
+) -> BillingProfileRepository:
+    return BillingProfileSQLAlchemyRepository(session=session)
+
+
 def get_invoice_repository(session: DbSession) -> InvoiceRepository:
     return InvoiceSQLAlchemyRepository(session=session)
 
@@ -315,6 +326,15 @@ def get_billing_history_use_case(
         user_repository=user_repository,
         invoice_repository=invoice_repository,
     )
+
+
+def get_billing_profile_use_case(
+    billing_profile_repository: Annotated[
+        BillingProfileRepository,
+        Depends(get_billing_profile_repository),
+    ],
+) -> GetBillingProfileUseCase:
+    return GetBillingProfileUseCase(billing_profile_repository=billing_profile_repository)
 
 
 def get_handle_stripe_webhook_use_case(
@@ -584,6 +604,10 @@ CreateCheckoutDep = Annotated[
 GetBillingHistoryDep = Annotated[
     GetBillingHistoryUseCase,
     Depends(get_billing_history_use_case),
+]
+GetBillingProfileDep = Annotated[
+    GetBillingProfileUseCase,
+    Depends(get_billing_profile_use_case),
 ]
 HandleWebhookDep = Annotated[
     HandleStripeWebhookUseCase,

@@ -7,6 +7,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _with_localhost_alias(origin: str) -> str | None:
+  parsed = urlsplit(origin)
+  if parsed.hostname not in {"localhost", "127.0.0.1"}:
+    return None
+
+  alias_host = "127.0.0.1" if parsed.hostname == "localhost" else "localhost"
+  netloc = alias_host
+  if parsed.port:
+    netloc = f"{netloc}:{parsed.port}"
+  if parsed.username or parsed.password:
+    auth = parsed.username or ""
+    if parsed.password:
+      auth = f"{auth}:{parsed.password}"
+    netloc = f"{auth}@{netloc}"
+  return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+
+
 def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> list[str]:
   origins = [
       origin.strip()
@@ -15,6 +32,12 @@ def _parse_cors_allow_origins(raw_value: str | None, fallback_origin: str) -> li
   ]
   if "*" in origins:
     raise ValueError("CORS_ALLOW_ORIGINS cannot contain '*' when credentials are enabled")
+
+  if raw_value is None:
+    localhost_alias = _with_localhost_alias(fallback_origin)
+    if localhost_alias and localhost_alias not in origins:
+      origins.append(localhost_alias)
+
   return origins
 
 

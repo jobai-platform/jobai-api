@@ -1,21 +1,22 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, status, Depends, Response
+from fastapi import APIRouter, Depends, Response, status
 
-from app.application.billing.use_cases import AssignFreemiumOnSignupUseCase
-from app.application.users.use_cases import UserService
 from app.core.dependency import (
+    CreateCandidateWithFreemiumDep,
     UserServiceDep,
-    AssignFreemiumDep
 )
 from app.domain.common.exceptions import NotFoundError
-from app.presentation.api.mappers.users_mapper import to_candidate_read as to_user_read, to_domain_candidate as to_domain_user
+from app.presentation.api.mappers.users_mapper import (
+    to_candidate_read as to_user_read,
+    to_domain_candidate as to_domain_user,
+)
 from app.presentation.api.v1.schemas.users import (
-    UserRead,
-    UsersCountResponse,
     UserCreate,
-    UserUpdate
+    UserRead,
+    UserUpdate,
+    UsersCountResponse,
 )
 from app.presentation.security.deps import get_current_user_id, require_admin_role
 
@@ -136,8 +137,7 @@ async def get_user_by_id(
 )
 async def create_user(
     payload: UserCreate,
-    service: UserServiceDep,
-    assign_freemium: AssignFreemiumDep,
+    provision_candidate: CreateCandidateWithFreemiumDep,
 ) -> UserRead:
     # Convert string role to CandidateRole enum
     from app.domain.users.entities import CandidateRole
@@ -147,7 +147,7 @@ async def create_user(
         # Default to USER role if invalid role provided
         role_enum = CandidateRole.USER
 
-    user = await service.register(
+    user = await provision_candidate.execute(
         email=str(payload.email),
         username=payload.username,
         first_name=payload.first_name,
@@ -156,7 +156,6 @@ async def create_user(
         role=role_enum,
         is_active=payload.is_active,
     )
-    await assign_freemium.execute(user.id)
     return to_user_read(user)
 
 

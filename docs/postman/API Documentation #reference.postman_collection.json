@@ -1,0 +1,1293 @@
+{
+  "info": {
+    "_postman_id": "68ec21c2-207f-4763-aaf7-aa931a955ca6",
+    "name": "API Documentation #reference",
+    "description": "JobAI backend API collection for local and preview testing.\n\nBase URL defaults to `http://localhost:5001/api/v1`. Authentication endpoints include login, LinkedIn OAuth, and the JOB-102 password reset flow.\n\nFor password reset testing, run **Auth / Password Reset / Request Password Reset**, retrieve the token from the email, set the `password_reset_token` collection variable, then run **Reset Password**.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "14287755",
+    "_collection_link": "https://go.postman.co/collection/14287755-68ec21c2-207f-4763-aaf7-aa931a955ca6?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "",
+                  "if (jsonData) {",
+                  "    pm.environment.set(\"Authorization\", jsonData.access_token);",
+                  "}",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "althea5@yahoo.com",
+                  "type": "text",
+                  "uuid": "faca2d1b-7082-4882-88e6-7f574931137d"
+                },
+                {
+                  "key": "password",
+                  "value": "123456789",
+                  "type": "text",
+                  "uuid": "87970ca6-765c-40b3-b6a5-86775c2ede3e"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Linkedin Auth Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "",
+                  "if (jsonData) {",
+                  "    pm.environment.set(\"linkedin_auth_token\", jsonData.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\":\"AQRTmZaiLEMRQsCT3IwnYs0pratOOz8oGxwUwQBeiItnDZrvlbPk75h53gD_6rZAM6H4Ner3Wtf9cp7GukD8vFx9sGOnIRFFpMs50mhwagdtK1il0DY_KC5rlOSO5KbnPqNVQQX21h3ed5w_paK_UnM8OydNx3s0xhbAvIFZIKupDDuRS3i3gpfWHCoTHKOdVcd4uH7hLARjENhakHg\",\n    \"redirect_uri\": \"http://localhost:5001/api/v1/auth/linkedin/callback\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/linkedin/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "linkedin",
+                "callback"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Linkedin Link To User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);",
+                  "",
+                  "if (jsonData) {",
+                  "    pm.environment.set(\"linkedin_auth_token\", jsonData.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\":\"AQS0hS22mQjDR12Ja6E7LcLt7mKGTCaoN7nBb1USHC5vz80KJTu6684UOvchLb3J70PKVCodh-zQFsA_kZ4ESsNb3GfKR0FSHQWRPTORmuYQdxpn5PKLGy6PaOe1ui1ZxDb6gqInJZqByhqbz6bQ9NBHlUDBGverM_loN57xBnIRsTxsphGY_yVOjUejf0qBtRLmRbBcD2CyeZ90k-I\",\n    \"redirect_uri\": \"http://localhost:5001/api/v1/auth/linkedin/callback\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/linkedin/link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "linkedin",
+                "link"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Linkedin Request",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{$randomEmail}}\",\n  \"username\": \"{{$randomUserName}}\",\n  \"first_name\": \"{{$randomFirstName}}\",\n  \"last_name\": \"{{$randomLastName}}\",\n  //\"password\": \"{{$randomPassword}}\",\n  \"password\": \"123456789\",\n  //  \"is_active\": \"{{$randomBoolean}}\",\n  \"stripe_customer_id\": \"{{$randomUUID}}\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/linkedin?redirect_uri=http://localhost:5001/api/v1/auth/linkedin/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "linkedin"
+              ],
+              "query": [
+                {
+                  "key": "redirect_uri",
+                  "value": "http://localhost:5001/api/v1/auth/linkedin/callback"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset",
+          "description": "JOB-102 password reset flow. Run 'Request Password Reset' first, copy the token from the received email into the password_reset_token collection variable, then run 'Reset Password'.",
+          "item": [
+            {
+              "name": "Request Password Reset",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Returns 204 No Content\", function () {",
+                      "    pm.response.to.have.status(204);",
+                      "});",
+                      "",
+                      "pm.test(\"Response body is empty\", function () {",
+                      "    pm.expect(pm.response.text()).to.eql(\"\");",
+                      "});",
+                      "",
+                      "console.log(\"Copy the token received by email into the password_reset_token collection variable.\");"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"{{reset_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/password/forgot",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "forgot"
+                  ]
+                },
+                "description": "Requests a password reset email. The API always returns 204 for a syntactically valid email, whether or not the Candidate exists."
+              },
+              "response": []
+            },
+            {
+              "name": "Reset Password",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Returns 204 No Content\", function () {",
+                      "    pm.response.to.have.status(204);",
+                      "});",
+                      "",
+                      "pm.test(\"Response body is empty\", function () {",
+                      "    pm.expect(pm.response.text()).to.eql(\"\");",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"token\": \"{{password_reset_token}}\",\n    \"new_password\": \"{{new_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/password/reset",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "description": "Consumes a valid reset token and replaces the Candidate password. Tokens expire after 30 minutes and can be used only once."
+              },
+              "response": []
+            },
+            {
+              "name": "Reset Password - Invalid Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Returns 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Returns the uniform token error\", function () {",
+                      "    const body = pm.response.json();",
+                      "    pm.expect(body.code).to.eql(\"bad_request\");",
+                      "    pm.expect(body.detail).to.eql(\"Invalid or expired password reset token\");",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"token\": \"invalid-token\",\n    \"new_password\": \"{{new_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/password/reset",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "description": "Verifies that invalid, expired, tampered, unknown, and consumed tokens share the same public error."
+              },
+              "response": []
+            },
+            {
+              "name": "Reset Password - Weak Password",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Returns 422 Validation Error\", function () {",
+                      "    pm.response.to.have.status(422);",
+                      "});",
+                      "",
+                      "pm.test(\"Returns the standard validation envelope\", function () {",
+                      "    const body = pm.response.json();",
+                      "    pm.expect(body.code).to.eql(\"validation_error\");",
+                      "    pm.expect(body.detail).to.eql(\"Request validation failed\");",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"token\": \"{{password_reset_token}}\",\n    \"new_password\": \"weak\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/password/reset",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "description": "Verifies the D4 password policy: at least 12 characters, one uppercase letter, one digit, and one special character."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "candidates",
+          "item": [
+            {
+              "name": "Candidates Profile",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Authorization}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/candidates/me/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "candidates",
+                    "me",
+                    "profile"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update candidates profile",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Authorization}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "/*{\n    \"bio\": \"Product-oriented Software Engineer with 10+ years of experience designing, building, and scaling web platforms across diverse domains, now pivoting toward the development of GenAI-powered products. My background spans full-stack engineering, APIs, cloud infrastructure, and clean system design, which I now leverage to build applied AI solutions rather than isolated prototypes. I focus on Python (FastAPI), modular and hexagonal architectures, and the implementation of LLM-based systems, including RAG pipelines, multi-agent workflows, and AI-driven automation. My current objective is a deliberate transition toward AI product development, combining long-term engineering expertise with newly acquired and continuously consolidated skills in GenAI, applied machine learning, and MLOps. I am particularly motivated by environments where experimentation meets real-world constraints, and where AI solutions must be robust, traceable, and production-ready from day one.\"\n}*/\n\n{\n    \"current_title\": \"Backend Developer\",\n    \"skills\": [\"python\", \"fastapi\", \"postgresql\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/candidates/me/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "candidates",
+                    "me",
+                    "profile"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Candidate CV",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Authorization}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "uuid": "c8159064-0d91-426c-9f72-882892924aea",
+                      "src": "/Users/rsantos/Library/CloudStorage/GoogleDrive-rpsantosvix@gmail.com/Mon Drive/Administratif/Travail /00 - Recherche d'emploi/Richardson_Santos_CV_EN.pdf"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/candidates/me/cv",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "candidates",
+                    "me",
+                    "cv"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Create a new user",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{$randomEmail}}\",\n  \"username\": \"{{$randomUserName}}\",\n  \"first_name\": \"{{$randomFirstName}}\",\n  \"last_name\": \"{{$randomLastName}}\",\n  //\"password\": \"{{$randomPassword}}\",\n  \"password\": \"123456789\",\n  //  \"is_active\": \"{{$randomBoolean}}\",\n  \"stripe_customer_id\": \"{{$randomUUID}}\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List of users",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "skip",
+                  "value": "",
+                  "type": "text",
+                  "uuid": "eaa71169-7b34-414d-8f0b-7c4602adae0f",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/f141b530-1ae0-4527-bb75-1c9c2df8008f",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "f141b530-1ae0-4527-bb75-1c9c2df8008f"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/0a8ec159-37d1-4536-b0b9-b5ad5c1a89a0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "0a8ec159-37d1-4536-b0b9-b5ad5c1a89a0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"last_name\": \"Dickinson Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/f141b530-1ae0-4527-bb75-1c9c2df8008f",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "f141b530-1ae0-4527-bb75-1c9c2df8008f"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Count of users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "count"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get authenticated user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "The `/me` endpoints let you manage information about the authenticated user."
+    },
+    {
+      "name": "Subscription",
+      "item": [
+        {
+          "name": "Stripe",
+          "item": [
+            {
+              "name": "Sync Prices",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stripe/sync-prices",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stripe",
+                    "sync-prices"
+                  ],
+                  "query": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json",
+                      "type": "text",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Current Subscription User",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Authorization}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stripe/subscription/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stripe",
+                    "subscription",
+                    "me"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Billing History",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Returns 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Returns a paginated envelope\", function () {",
+                      "    const body = pm.response.json();",
+                      "    pm.expect(body).to.have.property(\"items\");",
+                      "    pm.expect(body).to.have.property(\"total\");",
+                      "    pm.expect(body).to.have.property(\"limit\");",
+                      "    pm.expect(body).to.have.property(\"offset\");",
+                      "    pm.expect(body).to.have.property(\"has_more\");",
+                      "});",
+                      "",
+                      "pm.test(\"Invoice items contain the expected fields\", function () {",
+                      "    const body = pm.response.json();",
+                      "    if (body.items.length > 0) {",
+                      "        const item = body.items[0];",
+                      "        pm.expect(item).to.have.property(\"date\");",
+                      "        pm.expect(item).to.have.property(\"amount\");",
+                      "        pm.expect(item).to.have.property(\"currency\");",
+                      "        pm.expect(item).to.have.property(\"status\");",
+                      "        pm.expect(item).to.have.property(\"stripe_invoice_id\");",
+                      "        pm.expect(item).to.have.property(\"stripe_payment_id\");",
+                      "        pm.expect(item).to.have.property(\"description\");",
+                      "        pm.expect(item).to.have.property(\"hosted_invoice_url\");",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Authorization}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stripe/billing-history?limit=50&offset=0",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stripe",
+                    "billing-history"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Returns the connected user's Stripe invoice history with pagination metadata."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Search",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"keywords\": \"Python developer\",\n    \"location\": \"Geneva, Switzerland\",\n    \"limit\": 10,\n    \"remote_only\": false,\n    \"date_posted_within_days\": 7\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Search Agent",
+      "item": [
+        {
+          "name": "Search Agents",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"keywords\": \"python developer\",\n    \"location\": \"Geneva, Switzerland\",\n    \"remote_only\": true,\n    \"date_posted_within_days\": 7,\n    \"limit\": 25,\n    \"easy_apply_only\": true\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-agents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search-agents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Retrieve SearchAgent",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search-agents/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search-agents",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update SearchAgent",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"location\": \"Geneva, Switzerland\",\n    \"remote_only\": false,\n    \"limit\": 50,\n    \"easy_apply_only\": false\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-agents/317aacee-3178-4c18-b153-62dfb24a0ea7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search-agents",
+                "317aacee-3178-4c18-b153-62dfb24a0ea7"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete SearchAgent",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/search-agents/ef2425b1-9c56-4f49-a21f-10696149854f",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search-agents",
+                "ef2425b1-9c56-4f49-a21f-10696149854f"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Run SearchAgent",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Authorization}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search-agents/223406e6-0c93-4d04-86ad-c394b4437bce/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search-agents",
+                "223406e6-0c93-4d04-86ad-c394b4437bce",
+                "run"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5001/api/v1"
+    },
+    {
+      "key": "reset_email",
+      "value": "candidate@example.com",
+      "type": "string"
+    },
+    {
+      "key": "password_reset_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "new_password",
+      "value": "NewSecurePass1!",
+      "type": "string"
+    }
+  ]
+}

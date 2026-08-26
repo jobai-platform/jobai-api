@@ -14,6 +14,7 @@ from app.application.billing.use_cases import (
 from app.domain.billing.entities.billing_price import BillingPrice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan, SubscriptionStatus
+from app.domain.common.exceptions import BadRequestError, NotFoundError
 
 
 class FakeSubscriptionRepo:
@@ -209,13 +210,13 @@ async def test_create_checkout_session_errors_and_success():
     user_repo = FakeUserRepo(user=fake_user)
     uc = CreateCheckoutSessionUseCase(user_repository=user_repo, billing_gateway=fake_gateway)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(BadRequestError, match="freemium"):
         await uc.execute(
             user_id=fake_user.id, target_plan=Plan.FREEMIUM.value, success_url="a", cancel_url="b"
         )
 
     # invalid plan
-    with pytest.raises(ValueError):
+    with pytest.raises(BadRequestError, match="Invalid subscription plan"):
         await uc.execute(
             user_id=fake_user.id, target_plan="unknown", success_url="a", cancel_url="b"
         )
@@ -224,7 +225,7 @@ async def test_create_checkout_session_errors_and_success():
     uc_no_user = CreateCheckoutSessionUseCase(
         user_repository=FakeUserRepo(user=None), billing_gateway=fake_gateway
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(NotFoundError, match="user_not_found"):
         await uc_no_user.execute(
             user_id=uuid.uuid4(), target_plan=Plan.PRO.value, success_url="a", cancel_url="b"
         )

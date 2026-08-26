@@ -3,6 +3,37 @@ from datetime import datetime
 from pydantic import BaseModel, HttpUrl
 
 
+class BillingAddressRead(BaseModel):
+    line1: str
+    line2: str | None = None
+    city: str
+    state: str | None = None
+    postal_code: str
+    country: str
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class PaymentMethodSnapshotRead(BaseModel):
+    stripe_payment_method_id: str | None = None
+    brand: str
+    last4: str
+    exp_month: int
+    exp_year: int
+    holder_name: str | None = None
+    country: str | None = None
+    funding: str | None = None
+    wallet: str | None = None
+    masked_display: str
+    expiry_display: str
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
 class CreateCheckoutSessionRequest(BaseModel):
     plan: str
     success_url: str
@@ -65,6 +96,23 @@ class SubscriptionRead(BaseModel):
     canceled_at: datetime | None = None
     amount: int | None = None
     currency: str | None = None
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class BillingProfileRead(BaseModel):
+    user_id: str
+    stripe_customer_id: str | None = None
+    contact_first_name: str | None = None
+    contact_last_name: str | None = None
+    contact_email: str | None = None
+    contact_full_name: str | None = None
+    billing_address: BillingAddressRead | None = None
+    payment_method_snapshot: PaymentMethodSnapshotRead | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {
         "from_attributes": True,

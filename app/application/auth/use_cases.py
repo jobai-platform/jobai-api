@@ -116,7 +116,10 @@ def hash_password_reset_token(signed_token: str) -> str:
 
 
 def _invalid_password_reset_token() -> None:
-    raise ValueError("Invalid or expired password reset token")
+    raise UnauthorizedError(
+        code="invalid_password_reset_token",
+        details="Invalid or expired password reset token",
+    )
 
 
 class AuthService:
@@ -148,10 +151,16 @@ class AuthService:
             not user.hashed_password or
             not self.pwd_hasher.verify(password, user.hashed_password.value)
         ):
-            raise ValueError("Invalid credentials")
+            raise UnauthorizedError(
+                code="invalid_credentials",
+                details="Invalid credentials",
+            )
 
         if not user.is_active:
-            raise ValueError("User account is inactive")
+            raise UnauthorizedError(
+                code="user_inactive",
+                details="User account is inactive",
+            )
 
         subject = str(user.id)
         extra = {

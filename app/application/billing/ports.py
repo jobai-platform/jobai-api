@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from app.domain.billing.entities.billing_price import BillingPrice
+from app.domain.billing.entities.billing_profile import BillingProfile
 from app.domain.billing.entities.invoice import Invoice
 from app.domain.billing.entities.subscription import Subscription
 from app.domain.billing.enums import Plan
@@ -23,7 +24,10 @@ class SubscriptionRepository(ABC):
 
 
     @abstractmethod
-    async def get_by_stripe_subscription_id(self, stripe_subscription_id: str) -> Subscription | None:
+    async def get_by_stripe_subscription_id(
+        self,
+        stripe_subscription_id: str,
+    ) -> Subscription | None:
         """
         Get Subscription by Stripe Subscription ID.
         :param stripe_subscription_id: Stripe Subscription ID.
@@ -73,6 +77,25 @@ class BillingPriceRepository(ABC):
         :param plan: Plan enum value.
         :return: BillingPrice domain entity or None if not found.
         """
+        raise NotImplementedError()
+
+
+class BillingProfileRepository(ABC):
+    """
+    Abstract base class that represents a billing profile repository.
+    Billing profiles keep the local billing contact and masked payment snapshot.
+    """
+
+    @abstractmethod
+    async def get_by_user_id(self, user_id: UUID) -> BillingProfile | None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def get_by_stripe_customer_id(self, stripe_customer_id: str) -> BillingProfile | None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    async def upsert(self, profile: BillingProfile) -> BillingProfile:
         raise NotImplementedError()
 
 

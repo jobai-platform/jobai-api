@@ -18,7 +18,6 @@ from app.infrastructure.security.jwt_service import JWTService
 from app.main import app
 from tests.fakes.billing.fake_billing_gateway import FakeBillingGateway
 
-
 DB_DEPENDENT_FIXTURES = frozenset(
     {
         "async_engine",
@@ -94,9 +93,8 @@ async def db_session(async_engine, create_test_schema) -> AsyncGenerator[AsyncSe
             await session.close()
             await trans.rollback()
 
-
 @pytest_asyncio.fixture()
-async def client(db_session: AsyncSession):
+async def client(db_session: AsyncSession, freemium_price_in_db: BillingPriceModel):
     async def _override_get_async_session():
         yield db_session
 

@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.application.ai_analysis.use_cases import IndexJobPostingCommand, IndexJobPostingUseCase
+from app.domain.common.exceptions import BadRequestError
 from tests.fakes.ai_analysis.fake_embedding_port import FakeEmbeddingPort
 from tests.fakes.ai_analysis.fake_vector_store import FakeVectorStore
 
@@ -36,7 +37,7 @@ async def test_index_job_posting_raises_on_empty_description():
         vector_store=FakeVectorStore(),
     )
 
-    with pytest.raises(ValueError, match="description"):
+    with pytest.raises(BadRequestError, match="description"):
         await use_case.execute(
             IndexJobPostingCommand(job_posting_id=uuid4(), description="   ")
         )

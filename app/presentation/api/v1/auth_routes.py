@@ -116,30 +116,23 @@ async def login(
     :param auth_service: AuthService
     :return: AccessTokenResponse
     """
-    try:
-        tokens = await auth_service.login(
-            email=form_data.username,
-            password=form_data.password,
-        )
-        response.set_cookie(
-            REFRESH_TOKEN_COOKIE_NAME,
-            tokens.refresh_token,
-            max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            path="/",
-        )
-        return AccessTokenResponse(
-            access_token=tokens.access_token,
-            token_type=tokens.token_type,
-        )
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
+    tokens = await auth_service.login(
+        email=form_data.username,
+        password=form_data.password,
+    )
+    response.set_cookie(
+        REFRESH_TOKEN_COOKIE_NAME,
+        tokens.refresh_token,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return AccessTokenResponse(
+        access_token=tokens.access_token,
+        token_type=tokens.token_type,
+    )
 
 
 @router.post(
@@ -223,16 +216,10 @@ async def reset_password(
     body: ResetPasswordRequest,
     use_case: ResetPasswordUseCaseDep,
 ) -> None:
-    try:
-        await use_case.execute(
-            signed_token=body.token,
-            new_password=body.new_password,
-        )
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token",
-        ) from None
+    await use_case.execute(
+        signed_token=body.token,
+        new_password=body.new_password,
+    )
 
 
 @router.get(
